@@ -17,6 +17,20 @@ describe('seedProviders', () => {
   });
 });
 
+describe('topic-shaped providers', () => {
+  it('always includes Semantic Scholar alongside OpenAlex/Crossref', () => {
+    expect(seedProviders().map((p) => p.name)).toContain('Semantic Scholar');
+  });
+  it('adds Stack Exchange for technical topics only', () => {
+    expect(seedProviders({ technical: true }).map((p) => p.name)).toContain('Stack Exchange');
+    expect(seedProviders({}).map((p) => p.name)).not.toContain('Stack Exchange');
+  });
+  it('adds Wikinews for current-events topics only', () => {
+    expect(seedProviders({ current: true }).map((p) => p.name)).toContain('Wikinews');
+    expect(seedProviders({}).map((p) => p.name)).not.toContain('Wikinews');
+  });
+});
+
 describe('looksHistorical', () => {
   it('recognizes historical topics', () => {
     expect(looksHistorical('the French Revolution')).toBe(true);

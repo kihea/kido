@@ -10,6 +10,9 @@ import type { Corpus, Passage, ProviderProgress, SourceDoc, StudyBranch, StudyMa
 import { searchWiki } from './wiki';
 import { searchCrossref } from './crossref';
 import { searchOpenAlex } from './openalex';
+import { searchSemanticScholar } from './semanticscholar';
+import { searchEuropePmc } from './europepmc';
+import { searchStackExchange } from './stackexchange';
 import { searchHN } from './hn';
 import { searchOpenLibrary } from './openlibrary';
 import { searchChronicling } from './chronicling';
@@ -30,6 +33,10 @@ export interface FanoutOptions {
   politeEmail?: string;
   /** Topic looks historical → include slow primary/newspaper providers. */
   historical?: boolean;
+  /** Technical topic → include Stack Exchange accepted answers. */
+  technical?: boolean;
+  /** Current-events topic → include Wikinews. */
+  current?: boolean;
 }
 
 /** The provider set for a query, shaped by options. */
@@ -38,15 +45,25 @@ export function seedProviders(opts: FanoutOptions = {}): Provider[] {
     { name: 'Wikipedia', run: (q) => searchWiki(q, 'en.wikipedia.org', 'encyclopedia', 'Wikipedia', 3, 8) },
     { name: 'Wikibooks', run: (q) => searchWiki(q, 'en.wikibooks.org', 'textbook', 'Wikibooks', 2, 5) },
     { name: 'OpenAlex', run: (q) => searchOpenAlex(q, 5, opts.politeEmail) },
+    { name: 'Semantic Scholar', run: (q) => searchSemanticScholar(q) },
+    { name: 'Europe PMC', run: (q) => searchEuropePmc(q) },
     { name: 'Crossref', run: (q) => searchCrossref(q) },
     { name: 'Hacker News', run: (q) => searchHN(q) },
     { name: 'Open Library', run: (q) => searchOpenLibrary(q) },
+    { name: 'Wikiversity', run: (q) => searchWiki(q, 'en.wikiversity.org', 'textbook', 'Wikiversity', 1, 4) },
   ];
+  if (opts.technical) {
+    providers.push({ name: 'Stack Exchange', run: (q) => searchStackExchange(q) });
+  }
+  if (opts.current) {
+    providers.push({ name: 'Wikinews', run: (q) => searchWiki(q, 'en.wikinews.org', 'news', 'Wikinews', 2, 3) });
+  }
   if (opts.historical) {
     // Primary documents and period newspapers earn their slowness only when
     // the topic is actually historical.
     providers.push(
       { name: 'Wikisource', run: (q) => searchWiki(q, 'en.wikisource.org', 'primary', 'Wikisource', 2, 3) },
+      { name: 'Wikiquote', run: (q) => searchWiki(q, 'en.wikiquote.org', 'primary', 'Wikiquote', 1, 3) },
       { name: 'Chronicling America', run: (q) => searchChronicling(q) },
     );
   }
@@ -141,6 +158,18 @@ export function looksHistorical(topic: string): boolean {
   return HISTORICAL.test(topic);
 }
 
+const TECHNICAL = /\b(programming|code|software|algorithm|api|database|compiler|framework|network|linux|python|javascript|rust|machine learning|neural|regex|encryption|server)\b/i;
+
+export function looksTechnical(topic: string): boolean {
+  return TECHNICAL.test(topic);
+}
+
+const CURRENT = /\b(current|recent|today|this year|202\d|latest|ongoing|crisis|election)\b/i;
+
+export function looksCurrent(topic: string): boolean {
+  return CURRENT.test(topic);
+}
+
 export async function researchTopic(
   topic: string,
   opts: {
@@ -154,6 +183,8 @@ export async function researchTopic(
   const providers = seedProviders({
     ...(opts.politeEmail ? { politeEmail: opts.politeEmail } : {}),
     historical,
+    technical: looksTechnical(topic),
+    current: looksCurrent(topic),
   });
   const seed = await researchQuery(topic, opts.onProgress, providers);
   const studyMap = opts.studyMap ?? heuristicStudyMap(topic, opts.reach ?? 0.5);

@@ -78,7 +78,13 @@ async function parsePlainText(api: string, pageid: number): Promise<string | nul
   return html ? htmlToText(html) : null;
 }
 
-type WikiHost = 'en.wikipedia.org' | 'en.wikibooks.org' | 'en.wikisource.org' | 'en.wikinews.org';
+type WikiHost =
+  | 'en.wikipedia.org'
+  | 'en.wikibooks.org'
+  | 'en.wikisource.org'
+  | 'en.wikinews.org'
+  | 'en.wikiversity.org'
+  | 'en.wikiquote.org';
 
 function licenseFor(host: WikiHost): string {
   switch (host) {

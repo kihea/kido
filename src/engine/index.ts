@@ -18,4 +18,6 @@ export {
 export { buildPracticePool, itemsForLayer } from './exertion';
 export { dueItems, newReviewItem, reviewDebt, schedule } from './review';
 export { applyResponse, gradeResponse, next, reviewSeeds, startSession } from './tutor';
+export { nextSocraticTurn } from './socratic';
+export type { SocraticTurn } from './socratic';
 export type { Feedback, PracticeResponse, TutorOptions, TutorState } from './tutor';
