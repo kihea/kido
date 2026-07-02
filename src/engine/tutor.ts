@@ -5,7 +5,6 @@
 import type {
   ComprisingRelation,
   Corpus,
-  DiagnosticCard,
   DimensionalProfile,
   DomainFamily,
   EvidenceEvent,
@@ -23,7 +22,7 @@ import type {
 } from '../core/types';
 import { hashId } from '../core/ids';
 import { contentWords, normalize, wordCount } from '../core/text';
-import { buildDiagnostic, chooseTargetLayer, moveForLayer } from './diagnose';
+import { buildGauge, chooseTargetLayer, moveForLayer } from './diagnose';
 import { buildPracticePool, itemsForLayer } from './exertion';
 import { applyEvidence, effectiveMastery, initMastery } from './mastery';
 import { LAYER_INFO } from './layers';
@@ -37,7 +36,9 @@ export interface TutorState {
   cards: SessionCard[];
   usedItemIds: string[];
   usedPassageIds: string[];
-  phase: 'diagnostic' | 'teach' | 'practice' | 'done';
+  phase: 'gauge' | 'teach' | 'practice' | 'done';
+  /** Item ids still queued in the opening gauge. */
+  gaugeIds: string[];
   target: Layer;
   /** Consecutive cards spent on the current target layer. */
   stepsAtTarget: number;
@@ -47,9 +48,11 @@ export interface TutorState {
 
 export interface TutorOptions {
   family: DomainFamily;
-  /** Teaching+practice card budget for the session (excludes diagnostic/summary). */
+  /** Teaching+practice card budget for the session (excludes gauge/summary). */
   maxCards?: number;
   mastery?: MasteryVector;
+  /** Clock reading at session start (staleness in target choice). */
+  now?: number;
 }
 
 const MAX_STEPS_AT_TARGET = 3;
@@ -58,28 +61,26 @@ export function startSession(
   corpus: Corpus,
   profile: DimensionalProfile,
   opts: TutorOptions,
-): { state: TutorState; card: DiagnosticCard } {
-  const card = buildDiagnostic(profile, opts.family);
-  const state: TutorState = {
+): { state: TutorState; card: SessionCard } {
+  const pool = buildPracticePool(corpus, profile);
+  const gauge = buildGauge(pool, opts.family);
+  const base: TutorState = {
     corpus,
     profile,
     family: opts.family,
     mastery: opts.mastery ?? initMastery(),
-    pool: buildPracticePool(corpus, profile),
-    cards: [card],
+    pool,
+    cards: [],
     usedItemIds: [],
     usedPassageIds: [],
-    phase: 'diagnostic',
+    phase: gauge.length > 0 ? 'gauge' : 'teach',
+    gaugeIds: gauge.map((g) => g.id),
     target: 6,
     stepsAtTarget: 0,
     cardsRemaining: opts.maxCards ?? 14,
     events: [],
   };
-  return { state, card };
-}
-
-export function answerDiagnostic(state: TutorState, layer: Layer): TutorState {
-  return { ...state, phase: 'teach', target: layer, stepsAtTarget: 0 };
+  return next(base, opts.now ?? 0);
 }
 
 // -- card planning -------------------------------------------------------------
@@ -185,6 +186,33 @@ export function next(state: TutorState, now: number): { state: TutorState; card:
     return finish(state, now);
   }
 
+  // Opening gauge: quick probes, no explanations, no budget cost. The
+  // learner's answers seed the mastery vector before any teaching happens.
+  if (state.phase === 'gauge') {
+    const itemId = state.gaugeIds[0];
+    const item = state.pool.find((i) => i.id === itemId);
+    if (item) {
+      const card: PracticeCard = {
+        kind: 'practice',
+        id: hashId('gcard', `${item.id}|${state.cards.length}`),
+        item,
+        move: 'diagnostic',
+        gate: true,
+        reason: 'Opening gauge — this seeds where we start.',
+      };
+      const nextState: TutorState = {
+        ...state,
+        cards: [...state.cards, card],
+        usedItemIds: [...state.usedItemIds, item.id],
+        gaugeIds: state.gaugeIds.slice(1),
+      };
+      return { state: nextState, card };
+    }
+    // Gauge spent: pick the first target from the seeded evidence.
+    const target = chooseTargetLayer(state.profile, state.mastery, state.family, now);
+    return next({ ...state, phase: 'teach', target, stepsAtTarget: 0 }, now);
+  }
+
   // Re-diagnose when we've given the current layer its arc.
   let target = state.target;
   let steps = state.stepsAtTarget;
@@ -193,7 +221,7 @@ export function next(state: TutorState, now: number): { state: TutorState; card:
     steps = 0;
   }
 
-  if (state.phase === 'teach' || state.phase === 'diagnostic') {
+  if (state.phase === 'teach') {
     const passage = pickPassage(state, target);
     const card: SessionCard = passage ? excerptCard(state, passage, target) : templateExplanation(state, target);
     const usedPassageIds = passage ? [...state.usedPassageIds, passage.id] : state.usedPassageIds;

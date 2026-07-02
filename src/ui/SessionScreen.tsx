@@ -32,14 +32,6 @@ export function SessionScreen({
           session.advance();
         }
       }
-      const n = Number(e.key);
-      if (n >= 1 && n <= 9 && phase.card.kind === 'diagnostic') {
-        const option = phase.card.options[n - 1];
-        if (option) {
-          e.preventDefault();
-          session.chooseDiagnostic(option.layer);
-        }
-      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -110,7 +102,6 @@ export function SessionScreen({
             feedback={feedback}
             judgedBy={judgedBy}
             hasModel={hasModel}
-            onDiagnostic={session.chooseDiagnostic}
             onSubmit={(item, r) => void session.submit(item, r)}
             onAdvance={session.advance}
             onClip={(text) => setClipSignal((s) => ({ count: s.count + 1, text }))}

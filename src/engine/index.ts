@@ -10,18 +10,12 @@ export {
   DOMAIN_WEIGHTS,
   ENTRY_SEQUENCE,
   buildDiagnostic,
+  buildGauge,
   chooseTargetLayer,
   inferDomainFamily,
   moveForLayer,
 } from './diagnose';
 export { buildPracticePool, itemsForLayer } from './exertion';
 export { dueItems, newReviewItem, reviewDebt, schedule } from './review';
-export {
-  answerDiagnostic,
-  applyResponse,
-  gradeResponse,
-  next,
-  reviewSeeds,
-  startSession,
-} from './tutor';
+export { applyResponse, gradeResponse, next, reviewSeeds, startSession } from './tutor';
 export type { Feedback, PracticeResponse, TutorOptions, TutorState } from './tutor';

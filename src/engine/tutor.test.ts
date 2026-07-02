@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerDiagnostic, applyResponse, gradeResponse, next, reviewSeeds, startSession } from './tutor';
+import { applyResponse, gradeResponse, next, reviewSeeds, startSession } from './tutor';
 import { buildProfile } from './profile';
 import { fixtureCorpus } from './fixture.test-helper';
 import { newReviewItem } from './review';
@@ -14,29 +14,37 @@ function makeSession() {
 }
 
 describe('session flow', () => {
-  it('opens with exactly one diagnostic question', () => {
-    const { card } = makeSession();
-    expect(card.kind).toBe('diagnostic');
-    expect(card.options.length).toBeGreaterThanOrEqual(2);
+  it('opens with a gauge: quick, gated, objectively gradable probes', () => {
+    const { state, card } = makeSession();
+    expect(card.kind).toBe('practice');
+    if (card.kind === 'practice') {
+      expect(card.move).toBe('diagnostic');
+      expect(card.gate).toBe(true);
+      expect(['cloze', 'map-repair', 'sequence', 'boundary']).toContain(card.item.type);
+    }
+    expect(state.phase).toBe('gauge');
   });
 
-  it('teaches the layer the learner picked, scaffold before practice', () => {
-    let { state } = makeSession();
-    state = answerDiagnostic(state, 3);
-    const a = next(state, T0);
-    expect(a.card.kind === 'excerpt' || a.card.kind === 'explanation').toBe(true);
-    if (a.card.kind === 'excerpt') expect(a.card.layer).toBe(3);
-    const b = next(a.state, T0);
-    expect(b.card.kind).toBe('practice');
-    if (b.card.kind === 'practice') {
-      expect(b.card.item.layer).toBe(3);
-      expect(b.card.reason.length).toBeGreaterThan(0);
+  it('gauge probes cover distinct high-value layers and seed mastery before teaching', () => {
+    let { state, card } = makeSession();
+    const gaugeLayers: number[] = [];
+    // Answer (skip) through the whole gauge.
+    while (state.phase === 'gauge' && card.kind === 'practice') {
+      gaugeLayers.push(card.item.layer);
+      const graded = applyResponse(state, card.item, { type: 'skip' }, T0);
+      state = graded.state;
+      const r = next(state, T0);
+      state = r.state;
+      card = r.card;
     }
+    expect(new Set(gaugeLayers).size).toBe(gaugeLayers.length); // one probe per layer
+    expect(gaugeLayers.length).toBeGreaterThanOrEqual(2);
+    // After the gauge, teaching begins with a scaffold.
+    expect(card.kind === 'excerpt' || card.kind === 'explanation').toBe(true);
   });
 
   it('every card carries a stated reason (except summary)', () => {
     let { state } = makeSession();
-    state = answerDiagnostic(state, 2);
     for (let i = 0; i < 12; i++) {
       const r = next(state, T0 + i);
       state = r.state;
@@ -47,9 +55,8 @@ describe('session flow', () => {
 
   it('runs to a summary with a recommended next layer', () => {
     let { state } = makeSession();
-    state = answerDiagnostic(state, 1);
     let summary = null;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 40; i++) {
       const r = next(state, T0 + i);
       state = r.state;
       if (r.card.kind === 'summary') {
@@ -62,10 +69,8 @@ describe('session flow', () => {
   });
 
   it('responses update the mastery ledger on the exercised layer', () => {
-    let { state } = makeSession();
-    state = answerDiagnostic(state, 3);
-    // advance to a practice card
-    let practiceItem = null;
+    let { state, card } = makeSession();
+    let practiceItem = card.kind === 'practice' ? card.item : null;
     for (let i = 0; i < 6 && !practiceItem; i++) {
       const r = next(state, T0 + i);
       state = r.state;
@@ -91,7 +96,6 @@ describe('session flow', () => {
 
   it('seeds spaced review only from exercised, non-skipped items', () => {
     let { state } = makeSession();
-    state = answerDiagnostic(state, 3);
     let practiceItem = null;
     for (let i = 0; i < 6 && !practiceItem; i++) {
       const r = next(state, T0 + i);

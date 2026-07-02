@@ -13,7 +13,6 @@ export function CardView({
   feedback,
   judgedBy,
   hasModel,
-  onDiagnostic,
   onSubmit,
   onAdvance,
   onClip,
@@ -23,7 +22,6 @@ export function CardView({
   feedback: Feedback | null;
   judgedBy: 'heuristic' | 'model';
   hasModel: boolean;
-  onDiagnostic: (layer: import('../core/types').Layer) => void;
   onSubmit: (item: import('../core/types').PracticeItem, r: PracticeResponse) => void;
   onAdvance: () => void;
   onClip: (markdown: string) => void;
@@ -31,19 +29,9 @@ export function CardView({
 }) {
   switch (card.kind) {
     case 'diagnostic':
-      return (
-        <article className="card">
-          <p className="card-question">{card.question}</p>
-          <div className="option-list">
-            {card.options.map((o, i) => (
-              <button key={o.layer} type="button" className="option" onClick={() => onDiagnostic(o.layer)}>
-                <kbd>{i + 1}</kbd> {o.label}
-              </button>
-            ))}
-          </div>
-          <p className="card-reason">{card.reason}</p>
-        </article>
-      );
+      // The self-report diagnostic was replaced by the opening gauge; the
+      // card type survives for compatibility but is never emitted.
+      return null;
 
     case 'excerpt': {
       const { passage, doc } = card;

@@ -156,3 +156,29 @@ function idx(seq: Layer[], l: Layer): number {
   const i = seq.indexOf(l);
   return i === -1 ? 99 : i;
 }
+
+/**
+ * The opening gauge (replaces self-report): a short battery of quick,
+ * objectively gradable probes across the family's high-value layers. The
+ * learner doesn't know what they don't know — outcomes seed the mastery
+ * vector, and teaching starts from evidence instead of a guess.
+ */
+export function buildGauge(
+  pool: import('../core/types').PracticeItem[],
+  family: DomainFamily,
+  max = 4,
+): import('../core/types').PracticeItem[] {
+  const weights = DOMAIN_WEIGHTS[family];
+  // Quick to answer and objectively gradable; no essays in a gauge.
+  const quickness: Record<string, number> = { cloze: 3, 'map-repair': 2.5, sequence: 1.5, boundary: 1 };
+  const scored = pool
+    .map((item) => ({ item, score: (weights[item.layer] ?? 0.4) * (quickness[item.type] ?? 0) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const byLayer = new Map<Layer, import('../core/types').PracticeItem>();
+  for (const { item } of scored) {
+    if (!byLayer.has(item.layer)) byLayer.set(item.layer, item);
+    if (byLayer.size >= max) break;
+  }
+  return [...byLayer.values()];
+}

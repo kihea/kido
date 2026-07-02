@@ -20,7 +20,6 @@ import {
   newReviewItem,
   reviewSeeds,
   startSession,
-  answerDiagnostic,
   gradeResponse,
   next as nextCard,
   type Feedback,
@@ -43,7 +42,6 @@ export interface SessionApi {
   phase: SessionPhase;
   tutor: TutorState | null;
   begin: (topic: string) => Promise<void>;
-  chooseDiagnostic: (layer: Layer) => void;
   submit: (item: PracticeItem, response: PracticeResponse) => Promise<void>;
   advance: () => void;
   reset: () => void;
@@ -136,28 +134,16 @@ export function useSession(settings: Settings): SessionApi {
       const { state, card } = startSession(corpus, profile, {
         family: record.family,
         mastery: record.mastery,
+        now: Date.now(),
       });
       setTutor(state);
-      setPhase({ name: 'active', card, feedback: null, judgedBy: 'heuristic' });
+      setPhase(
+        card.kind === 'summary'
+          ? { name: 'done', summary: card }
+          : { name: 'active', card, feedback: null, judgedBy: 'heuristic' },
+      );
     },
     [settings],
-  );
-
-  const chooseDiagnostic = useCallback(
-    (layer: Layer) => {
-      setTutor((t) => {
-        if (!t) return t;
-        const answered = answerDiagnostic(t, layer);
-        const { state, card } = nextCard(answered, Date.now());
-        setPhase(
-          card.kind === 'summary'
-            ? { name: 'done', summary: card }
-            : { name: 'active', card, feedback: null, judgedBy: 'heuristic' },
-        );
-        return state;
-      });
-    },
-    [],
   );
 
   const submit = useCallback(
@@ -234,5 +220,5 @@ export function useSession(settings: Settings): SessionApi {
     }, 600);
   }, []);
 
-  return { phase, tutor, begin, chooseDiagnostic, submit, advance, reset, notebook, updateNotebook };
+  return { phase, tutor, begin, submit, advance, reset, notebook, updateNotebook };
 }
