@@ -3,7 +3,7 @@
 
 export { analyzeCorpus, resolveTopicConcept } from './corpus';
 export { annotatePassages, annotationCoverage, dominantLayer, heuristicTags } from './annotate';
-export { buildProfile } from './profile';
+export { buildProfile, mergeStructuredRelations } from './profile';
 export { LAYER_INFO, TEACHABLE_LAYERS, WORKING_STACK, layerName } from './layers';
 export { applyEvidence, effectiveMastery, initMastery, masteryConfidence, weakestLayers } from './mastery';
 export {

@@ -8,3 +8,5 @@ export {
 } from './fanout';
 export type { FanoutOptions, ResearchResult } from './fanout';
 export { lookupDefinition } from './wiktionary';
+export { wikidataRelations } from './wikidata';
+export type { StructuredRelations } from './wikidata';

@@ -207,6 +207,60 @@ function buildNeighboring(corpus: Corpus, topicLabel: string): NeighborEdge[] {
   return [...edges.values()].slice(0, 8);
 }
 
+/**
+ * Merge structured (Wikidata-style) relations into a text-derived profile.
+ * Structured edges carry no passage support (passageIds: []) — the UI labels
+ * them as ontology, not excerpts. Duplicates by normalized label are skipped;
+ * maturity is re-credited if a previously-empty map gains entries. Pure.
+ */
+export function mergeStructuredRelations(
+  profile: DimensionalProfile,
+  relations: {
+    comprising: { label: string; relation: ComprisingRelation }[];
+    neighboring: { label: string }[];
+  },
+): DimensionalProfile {
+  const haveC = new Set(profile.comprising.map((e) => normalize(e.label)));
+  const haveN = new Set(profile.neighboring.map((n) => normalize(n.label)));
+  const topicKey = normalize(profile.topic);
+
+  const newComprising: ComprisingEdge[] = [];
+  for (const c of relations.comprising) {
+    const key = normalize(c.label);
+    if (!key || key === topicKey || haveC.has(key)) continue;
+    haveC.add(key);
+    newComprising.push({
+      concept: `wd:${key}`,
+      label: c.label,
+      relation: c.relation,
+      layer: 7, // ontology edges are structural until text evidence refines them
+      passageIds: [],
+    });
+  }
+
+  const newNeighboring: NeighborEdge[] = [];
+  for (const n of relations.neighboring) {
+    const key = normalize(n.label);
+    if (!key || key === topicKey || haveN.has(key)) continue;
+    haveN.add(key);
+    newNeighboring.push({
+      concept: `wd:${key}`,
+      label: n.label,
+      boundaryQuestion: `${n.label} is often confused with ${profile.topic}. What decides which one you're looking at?`,
+      passageIds: [],
+    });
+  }
+
+  if (newComprising.length === 0 && newNeighboring.length === 0) return profile;
+  const comprising = [...profile.comprising, ...newComprising].slice(0, 14);
+  const neighboring = [...profile.neighboring, ...newNeighboring].slice(0, 10);
+  // Re-credit the two structural maturity questions if they just became answerable.
+  let maturity = profile.maturity;
+  if (profile.comprising.length === 0 && comprising.length > 0) maturity += 1 / 9;
+  if (profile.neighboring.length === 0 && neighboring.length > 0) maturity += 1 / 9;
+  return { ...profile, comprising, neighboring, maturity: Math.min(1, maturity) };
+}
+
 export function buildProfile(corpus: Corpus): DimensionalProfile {
   const topicConcept = resolveTopicConcept(corpus);
   const topicLabel = topicConcept?.label ?? corpus.topic;

@@ -15,6 +15,7 @@ import {
   annotatePassages,
   applyEvidence,
   buildProfile,
+  mergeStructuredRelations,
   inferDomainFamily,
   initMastery,
   newReviewItem,
@@ -26,7 +27,7 @@ import {
   type PracticeResponse,
   type TutorState,
 } from '../engine';
-import { heuristicStudyMap, researchTopic, withStudyMap } from '../research';
+import { heuristicStudyMap, researchTopic, wikidataRelations, withStudyMap } from '../research';
 import { modelEvaluate, modelStudyMap } from '../ai';
 import type { ModelConfig } from '../ai';
 import { loadTopic, saveTopic, topicId, type Settings, type TopicRecord } from '../state/store';
@@ -110,7 +111,11 @@ export function useSession(settings: Settings): SessionApi {
 
       const passages = annotatePassages(research.passages);
       const corpus = withStudyMap(analyzeCorpus(trimmed, research.docs, passages), studyMap);
-      const profile = buildProfile(corpus);
+      let profile = buildProfile(corpus);
+      // Wikidata's curated ontology enriches the comprising/neighboring maps —
+      // best-effort; the text-derived profile stands alone without it.
+      const structured = await wikidataRelations(trimmed).catch(() => null);
+      if (structured) profile = mergeStructuredRelations(profile, structured);
       const sample = passages
         .slice(0, 5)
         .map((p) => p.text)
