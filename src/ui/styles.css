@@ -9,38 +9,40 @@
   --speed: 180ms;
 }
 
+/* KIDO palette: oxblood as accent (never washing the page), ivory/bone paper
+   in light mode, near-black void surfaces in dark mode with ivory text. */
 [data-theme='dark'] {
   color-scheme: dark;
-  --bg: #101216;
-  --bg-raised: #171a20;
-  --bg-inset: #0c0e11;
-  --ink: #e8e6e1;
-  --ink-dim: #9a978f;
-  --ink-faint: #63615b;
-  --line: #262a32;
-  --accent: #d9a441;
-  --accent-ink: #14110a;
+  --bg: #0a0807; /* void base */
+  --bg-raised: #14110f; /* void card surface */
+  --bg-inset: #060504; /* deeper panel ground */
+  --ink: #f8f3e5; /* ivory text */
+  --ink-dim: #c8beb6; /* void-100 */
+  --ink-faint: #8a7d74; /* void-200 */
+  --line: #2a2520;
+  --accent: #c53041; /* oxblood-400 — reads on near-black */
+  --accent-ink: #f8f3e5;
   --good: #6fbf87;
   --warn: #d9a441;
-  --miss: #c96f6f;
-  --focus: #7aa2d9;
+  --miss: #e07382; /* oxblood-300 */
+  --focus: #e07382;
 }
 
 [data-theme='light'] {
   color-scheme: light;
-  --bg: #faf8f4;
-  --bg-raised: #ffffff;
-  --bg-inset: #f1eee7;
-  --ink: #23211c;
-  --ink-dim: #6b675e;
-  --ink-faint: #9b968a;
-  --line: #e2ddd2;
-  --accent: #a06b13;
-  --accent-ink: #ffffff;
+  --bg: #f8f3e5; /* ivory — true light */
+  --bg-raised: #fdfaf2;
+  --bg-inset: #ece2c8; /* bone */
+  --ink: #0a0807; /* near-black ink */
+  --ink-dim: #5f564b; /* ink-mute */
+  --ink-faint: #9a8b6f;
+  --line: #dacdac; /* pressed bone */
+  --accent: #7a0e1f; /* foxing — deep oxblood holds contrast on ivory */
+  --accent-ink: #f8f3e5;
   --good: #2e7d4a;
-  --warn: #a06b13;
-  --miss: #a94444;
-  --focus: #2f5f9e;
+  --warn: #8a5a10;
+  --miss: #b11226; /* canonical oxblood */
+  --focus: #7a0e1f;
 }
 
 * {
