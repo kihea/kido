@@ -85,6 +85,7 @@ export function useSession(settings: Settings): SessionApi {
 
       const research = await researchTopic(trimmed, {
         reach: settings.reach,
+        ...(settings.politeEmail ? { politeEmail: settings.politeEmail } : {}),
         onProgress: (progress) =>
           setPhase((p) => (p.name === 'researching' ? { ...p, progress } : p)),
       });

@@ -97,6 +97,57 @@ export function clampAtSentence(text: string, target = 700, max = 1100): string 
   return cut > 0 ? slice.slice(0, cut).trim() : slice.trim() + '…';
 }
 
+/**
+ * Read only the head of a large text file via a streamed fetch, cancelling
+ * once enough has arrived. Plain GET (no Range header → no CORS preflight).
+ */
+export async function fetchTextHead(url: string, maxChars = 220000, timeoutMs = 12000): Promise<string | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok || !res.body) return null;
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let out = '';
+    while (out.length < maxChars) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      out += decoder.decode(value, { stream: true });
+    }
+    void reader.cancel().catch(() => {});
+    return out;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Normalize OCR text: join hyphenated line breaks, collapse whitespace. */
+export function cleanOcr(text: string): string {
+  return text
+    .replace(/(\w)-\s*\n\s*(\w)/g, '$1$2')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Is this OCR text clean enough to read as a verbatim excerpt? Historic scans
+ * vary wildly; garbage passages would poison concept extraction and practice.
+ */
+export function ocrQualityOk(text: string): boolean {
+  if (text.length < 200) return false;
+  const letters = (text.match(/[a-zA-Z\s,.;:'"()-]/g) ?? []).length / text.length;
+  if (letters < 0.88) return false;
+  const words = text.match(/[A-Za-z][A-Za-z'-]*/g) ?? [];
+  if (words.length < 30) return false;
+  const withVowels = words.filter((w) => /[aeiouyAEIOUY]/.test(w)).length / words.length;
+  if (withVowels < 0.88) return false;
+  const avgLen = words.reduce((s, w) => s + w.length, 0) / words.length;
+  return avgLen >= 3.2 && avgLen <= 9;
+}
+
 /** Meaningful lowercase tokens of a query, for relevance checks. */
 export function queryTokens(query: string): string[] {
   return [

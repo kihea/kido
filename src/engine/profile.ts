@@ -40,8 +40,10 @@ function scorePassagesByLayer(corpus: Corpus, topicConcept: Concept | undefined)
       if (tag.confidence < 0.4) continue;
       const doc = corpus.docs.get(p.docId);
       const relevance = topicPassages.size === 0 ? 1 : topicPassages.has(p.id) ? 1 : 0.35;
-      // Papers and encyclopedias anchor claims; discussion adds tension later.
-      const sourceQuality = doc?.sourceType === 'discussion' ? 0.6 : 1;
+      // Encyclopedias, textbooks and papers anchor claims; discussion and OCR'd
+      // period newspapers add color and tension but shouldn't define a layer.
+      const sourceQuality =
+        doc?.sourceType === 'discussion' || doc?.sourceType === 'news' ? 0.6 : 1;
       const score = tag.confidence * relevance * sourceQuality;
       const list = byLayer.get(tag.layer) ?? [];
       list.push({ passage: p, layer: tag.layer, score });

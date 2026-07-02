@@ -112,6 +112,30 @@ export function SettingsScreen({
         </section>
 
         <section className="settings-section">
+          <h2>Sources</h2>
+          <p className="settings-copy">
+            KIDO researches Wikipedia, Wikibooks, OpenAlex and Crossref (journals and papers), Hacker News,
+            and Open Library — all keyless. Historical topics also pull period newspapers (Library of
+            Congress) and primary documents (Wikisource). An email joins OpenAlex's polite pool for faster,
+            steadier results; it's sent only to OpenAlex, only on your requests.
+          </p>
+          <div className="settings-fields">
+            <label>
+              Contact email (optional)
+              <input
+                type="email"
+                value={draft.politeEmail ?? ''}
+                placeholder="you@example.com"
+                onChange={(e) => {
+                  const { politeEmail: _drop, ...rest } = draft;
+                  setDraft(e.target.value ? { ...rest, politeEmail: e.target.value } : rest);
+                }}
+              />
+            </label>
+          </div>
+        </section>
+
+        <section className="settings-section">
           <h2>Branch-out reach</h2>
           <p className="settings-copy">
             How far research wanders from the topic itself: low stays on what the idea presupposes and

@@ -13,9 +13,11 @@
 export type SourceType =
   | 'encyclopedia' // Wikipedia
   | 'textbook' // Wikibooks
-  | 'paper' // Crossref scholarly abstracts (the authors' own words)
+  | 'paper' // Crossref / OpenAlex scholarly abstracts (the authors' own words)
   | 'discussion' // Hacker News comments (where pushback lives)
   | 'book' // Open Library pointers
+  | 'news' // Chronicling America historic newspapers (the topic in its own time)
+  | 'primary' // Wikisource original documents and texts
   | 'reference'; // Wiktionary definitions
 
 export interface SourceDoc {

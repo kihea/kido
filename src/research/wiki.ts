@@ -47,6 +47,50 @@ function paragraphs(text: string): string[] {
     .filter((p) => p.length >= 180 && !/^\|/.test(p) && !isMetaSentence(p));
 }
 
+/** Rendered HTML → plain text, keeping paragraph boundaries. Exported for tests. */
+export function htmlToText(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<(sup|table)[\s\S]*?<\/\1>/gi, ' ') // footnote markers, layout tables
+    .replace(/<\/(p|div|h\d|li|tr|blockquote)>/gi, '\n\n')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&#160;|&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * Wikisource renders most works by transcluding proofread scan pages, which
+ * the TextExtracts API cannot expand (it returns ''). action=parse renders
+ * the real text, so primary sources actually contribute passages.
+ */
+async function parsePlainText(api: string, pageid: number): Promise<string | null> {
+  const data = (await getJSON(
+    `${api}?action=parse&pageid=${pageid}&prop=text&format=json&origin=*`,
+    12000,
+  )) as { parse?: { text?: { '*'?: string } } } | null;
+  const html = data?.parse?.text?.['*'];
+  return html ? htmlToText(html) : null;
+}
+
+type WikiHost = 'en.wikipedia.org' | 'en.wikibooks.org' | 'en.wikisource.org' | 'en.wikinews.org';
+
+function licenseFor(host: WikiHost): string {
+  switch (host) {
+    case 'en.wikisource.org':
+      return 'Public domain (Wikisource)';
+    case 'en.wikinews.org':
+      return 'CC BY 2.5 (Wikinews)';
+    default:
+      return 'CC BY-SA 4.0';
+  }
+}
+
 /** Spread candidate paragraphs across early/middle/late sections. Exported for tests. */
 export function spreadPick<T extends { sectionOrdinal: number }>(
   candidates: T[],
@@ -78,7 +122,7 @@ export function spreadPick<T extends { sectionOrdinal: number }>(
 
 export async function searchWiki(
   query: string,
-  host: 'en.wikipedia.org' | 'en.wikibooks.org',
+  host: WikiHost,
   sourceType: SourceType,
   provider: string,
   maxPages: number,
@@ -103,7 +147,14 @@ export async function searchWiki(
   const passages: Passage[] = [];
   for (const id of ids) {
     const page = pageMap[String(id)];
-    if (!page?.extract) continue;
+    if (!page) continue;
+    // Wikisource works are transcluded from scans, so extracts come back
+    // empty — render the page instead. Other hosts always have extracts.
+    let extract = page.extract;
+    if (!extract && host === 'en.wikisource.org') {
+      extract = (await parsePlainText(api, page.pageid)) ?? undefined;
+    }
+    if (!extract) continue;
     const url = page.fullurl ?? `https://${host}/?curid=${page.pageid}`;
     const doc: SourceDoc = {
       id: freshId('doc'),
@@ -111,9 +162,9 @@ export async function searchWiki(
       sourceType,
       title: page.title,
       url,
-      license: 'CC BY-SA 4.0',
+      license: licenseFor(host),
     };
-    const sections = splitSections(page.extract.slice(0, 48000));
+    const sections = splitSections(extract.slice(0, 48000));
     const candidates: { section: string; para: string; sectionOrdinal: number }[] = [];
     sections.forEach((chunk, ordinal) => {
       for (const raw of paragraphs(chunk.text).slice(0, 4)) {

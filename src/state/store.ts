@@ -26,6 +26,8 @@ export interface Settings {
   /** Branch-out reach 0..1. */
   reach: number;
   theme: 'dark' | 'light';
+  /** Optional: joins OpenAlex's "polite pool" for faster, more reliable results. */
+  politeEmail?: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = { model: NO_MODEL, reach: 0.5, theme: 'dark' };

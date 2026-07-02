@@ -9,8 +9,10 @@
 import type { Corpus, Passage, ProviderProgress, SourceDoc, StudyBranch, StudyMap } from '../core/types';
 import { searchWiki } from './wiki';
 import { searchCrossref } from './crossref';
+import { searchOpenAlex } from './openalex';
 import { searchHN } from './hn';
 import { searchOpenLibrary } from './openlibrary';
+import { searchChronicling } from './chronicling';
 
 export interface ResearchResult {
   docs: SourceDoc[];
@@ -23,18 +25,38 @@ type Provider = {
   run: (query: string) => Promise<{ docs: SourceDoc[]; passages: Passage[] }>;
 };
 
-const SEED_PROVIDERS: Provider[] = [
-  { name: 'Wikipedia', run: (q) => searchWiki(q, 'en.wikipedia.org', 'encyclopedia', 'Wikipedia', 3, 8) },
-  { name: 'Wikibooks', run: (q) => searchWiki(q, 'en.wikibooks.org', 'textbook', 'Wikibooks', 2, 5) },
-  { name: 'Crossref', run: (q) => searchCrossref(q) },
-  { name: 'Hacker News', run: (q) => searchHN(q) },
-  { name: 'Open Library', run: (q) => searchOpenLibrary(q) },
-];
+export interface FanoutOptions {
+  /** Passed to OpenAlex for the polite pool; never required. */
+  politeEmail?: string;
+  /** Topic looks historical → include slow primary/newspaper providers. */
+  historical?: boolean;
+}
+
+/** The provider set for a query, shaped by options. */
+export function seedProviders(opts: FanoutOptions = {}): Provider[] {
+  const providers: Provider[] = [
+    { name: 'Wikipedia', run: (q) => searchWiki(q, 'en.wikipedia.org', 'encyclopedia', 'Wikipedia', 3, 8) },
+    { name: 'Wikibooks', run: (q) => searchWiki(q, 'en.wikibooks.org', 'textbook', 'Wikibooks', 2, 5) },
+    { name: 'OpenAlex', run: (q) => searchOpenAlex(q, 5, opts.politeEmail) },
+    { name: 'Crossref', run: (q) => searchCrossref(q) },
+    { name: 'Hacker News', run: (q) => searchHN(q) },
+    { name: 'Open Library', run: (q) => searchOpenLibrary(q) },
+  ];
+  if (opts.historical) {
+    // Primary documents and period newspapers earn their slowness only when
+    // the topic is actually historical.
+    providers.push(
+      { name: 'Wikisource', run: (q) => searchWiki(q, 'en.wikisource.org', 'primary', 'Wikisource', 2, 3) },
+      { name: 'Chronicling America', run: (q) => searchChronicling(q) },
+    );
+  }
+  return providers;
+}
 
 export async function researchQuery(
   query: string,
   onProgress?: (progress: ProviderProgress[]) => void,
-  providers: Provider[] = SEED_PROVIDERS,
+  providers: Provider[] = seedProviders(),
 ): Promise<ResearchResult> {
   const progress: ProviderProgress[] = providers.map((p) => ({ name: p.name, status: 'pending', passages: 0 }));
   const report = () => onProgress?.(progress.map((p) => ({ ...p })));
@@ -113,11 +135,27 @@ export function heuristicStudyMap(topic: string, reach = 0.5): StudyMap {
  * tagged with why they were gathered). Returns raw docs/passages for the
  * engine's corpus analysis.
  */
+const HISTORICAL = /\b(history|historical|war|revolution|empire|century|ancient|medieval|dynasty|colonial|reformation|\d{4}s?)\b/i;
+
+export function looksHistorical(topic: string): boolean {
+  return HISTORICAL.test(topic);
+}
+
 export async function researchTopic(
   topic: string,
-  opts: { reach?: number; studyMap?: StudyMap; onProgress?: (p: ProviderProgress[]) => void } = {},
+  opts: {
+    reach?: number;
+    studyMap?: StudyMap;
+    politeEmail?: string;
+    onProgress?: (p: ProviderProgress[]) => void;
+  } = {},
 ): Promise<{ docs: SourceDoc[]; passages: Passage[]; progress: ProviderProgress[]; studyMap: StudyMap }> {
-  const seed = await researchQuery(topic, opts.onProgress);
+  const historical = looksHistorical(topic) || (opts.reach ?? 0.5) >= 0.75;
+  const providers = seedProviders({
+    ...(opts.politeEmail ? { politeEmail: opts.politeEmail } : {}),
+    historical,
+  });
+  const seed = await researchQuery(topic, opts.onProgress, providers);
   const studyMap = opts.studyMap ?? heuristicStudyMap(topic, opts.reach ?? 0.5);
 
   // Branches use the encyclopedia only — breadth without drowning the seed.

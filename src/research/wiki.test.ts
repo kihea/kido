@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { spreadPick, splitSections } from './wiki';
+import { htmlToText, spreadPick, splitSections } from './wiki';
 
 const EXTRACT = [
   'Gradient descent is a first-order iterative optimization algorithm.',
@@ -23,6 +23,16 @@ describe('splitSections', () => {
     const names = sections.map((s) => s.section);
     expect(names).toEqual(['Overview', 'Description', 'Applications']);
     expect(sections[0]!.text).toContain('first-order iterative');
+  });
+});
+
+describe('htmlToText', () => {
+  it('keeps paragraph boundaries and strips tags/entities (for Wikisource render)', () => {
+    const html = '<p>First para with a <sup>1</sup>footnote.</p><p>Second &amp; final.</p>';
+    const text = htmlToText(html);
+    expect(text).toContain('First para');
+    expect(text).toContain('Second & final');
+    expect(text).not.toContain('<');
   });
 });
 
