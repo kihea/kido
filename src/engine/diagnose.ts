@@ -86,7 +86,10 @@ export function chooseTargetLayer(
   let best: Layer = teachable[0]!;
   let bestScore = -Infinity;
   for (const l of teachable) {
-    const value = weights[l] ?? 0.4;
+    // Domain weight, but with a floor for boundary (L3) and concept (L6):
+    // discrimination and retrieval are universal techniques (pedagogy matrix
+    // §10), so they earn attention in every domain, not only where weighted.
+    const value = Math.max(weights[l] ?? 0.4, l === 3 || l === 6 ? 0.62 : 0);
     const eff = effectiveMastery(mastery[l], now);
     const gap = eff === null ? 0.85 : 1 - eff; // unknown ≈ probably weak, worth probing
     const entryIdx = entry.indexOf(l);

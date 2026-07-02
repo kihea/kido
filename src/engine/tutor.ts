@@ -166,7 +166,11 @@ function templateExplanation(state: TutorState, layer: Layer): ExplanationCard {
 }
 
 function practiceCard(state: TutorState, item: PracticeItem): PracticeCard {
-  const gated = item.type === 'cloze' || item.type === 'sequence' || item.type === 'map-repair';
+  const gated =
+    item.type === 'cloze' ||
+    item.type === 'sequence' ||
+    item.type === 'map-repair' ||
+    item.type === 'grouping';
   return {
     kind: 'practice',
     id: hashId('pcard', `${item.id}|${state.cards.length}`),
@@ -237,9 +241,11 @@ export function next(state: TutorState, now: number): { state: TutorState; card:
     return { state: nextState, card };
   }
 
-  // practice phase
+  // practice phase — draw with variety so interactive modes (grouping,
+  // flashcard, map-repair) actually surface instead of being crowded out by
+  // whatever text item happens to sit first in the pool for this layer.
   const available = itemsForLayer(state.pool, target).filter((i) => !state.usedItemIds.includes(i.id));
-  const item = available[0];
+  const item = pickVaried(available, state.cards);
   if (!item) {
     // Nothing to exercise at this layer — teach a different one.
     const reTarget = chooseTargetLayer(
@@ -262,6 +268,20 @@ export function next(state: TutorState, now: number): { state: TutorState; card:
     cardsRemaining: state.cardsRemaining - 1,
   };
   return { state: nextState, card };
+}
+
+/**
+ * Prefer an item whose interaction type hasn't appeared in the last few cards.
+ * Keeps the session from becoming a wall of one interaction, and gives the
+ * hands-on modes a real rotation. Falls back to first-available.
+ */
+function pickVaried(available: PracticeItem[], cards: SessionCard[]): PracticeItem | undefined {
+  if (available.length <= 1) return available[0];
+  const recentTypes = cards
+    .slice(-4)
+    .flatMap((c) => (c.kind === 'practice' ? [c.item.type] : []));
+  const fresh = available.find((i) => !recentTypes.includes(i.type));
+  return fresh ?? available[0];
 }
 
 function finish(state: TutorState, now: number): { state: TutorState; card: SummaryCard } {
@@ -295,6 +315,8 @@ export type PracticeResponse =
   | { type: 'feynman'; text: string }
   | { type: 'map-repair'; choice: ComprisingRelation }
   | { type: 'transfer'; text: string; selfGrade?: 'pass' | 'partial' | 'miss' }
+  | { type: 'grouping'; placedInA: string[] } // labels the learner put in group A
+  | { type: 'flashcard'; recalled: 'pass' | 'partial' | 'miss' } // self-graded on flip
   | { type: 'skip' };
 
 export interface Feedback {
@@ -411,6 +433,37 @@ export function gradeResponse(item: PracticeItem, response: PracticeResponse): F
           words >= 25
             ? 'Recorded. Compare your prediction against the sources — then grade yourself.'
             : 'Run the scenario further: name one thing that survives and one that breaks.',
+      };
+    }
+    case 'grouping': {
+      if (response.type !== 'grouping') break;
+      const inA = new Set(response.placedInA.map((s) => s.toLowerCase()));
+      const total = item.groupA.members.length + item.groupB.members.length;
+      let correct = 0;
+      for (const m of item.groupA.members) if (inA.has(m.toLowerCase())) correct += 1;
+      for (const m of item.groupB.members) if (!inA.has(m.toLowerCase())) correct += 1;
+      const outcome: Outcome = correct === total ? 'pass' : correct >= Math.ceil(total * 0.7) ? 'partial' : 'miss';
+      return {
+        outcome,
+        note:
+          outcome === 'pass'
+            ? 'Every one placed right — the boundary is real to you, not just the definition.'
+            : 'Some crossed the line the wrong way. The reveal shows which belong inside.',
+        ...(outcome === 'pass'
+          ? {}
+          : {
+              reveal: `Inside: ${item.groupA.members.join(', ')}\nNeighbors: ${item.groupB.members.join(', ')}`,
+            }),
+      };
+    }
+    case 'flashcard': {
+      if (response.type !== 'flashcard') break;
+      return {
+        outcome: response.recalled,
+        note:
+          response.recalled === 'pass'
+            ? 'Retrieved cleanly. It stays on the schedule so it stays retrievable.'
+            : 'Noted — this one comes back sooner.',
       };
     }
   }

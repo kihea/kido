@@ -43,6 +43,19 @@ describe('session flow', () => {
     expect(card.kind === 'excerpt' || card.kind === 'explanation').toBe(true);
   });
 
+  it('interactive modes surface: a full session emits a hands-on item, not only text', () => {
+    let { state } = makeSession();
+    const types = new Set<string>();
+    for (let i = 0; i < 60; i++) {
+      const r = next(state, T0 + i);
+      state = r.state;
+      if (r.card.kind === 'summary') break;
+      if (r.card.kind === 'practice') types.add(r.card.item.type);
+    }
+    const interactive = ['grouping', 'flashcard', 'sequence', 'map-repair'].filter((t) => types.has(t));
+    expect(interactive.length).toBeGreaterThan(0);
+  });
+
   it('every card carries a stated reason (except summary)', () => {
     let { state } = makeSession();
     for (let i = 0; i < 12; i++) {
@@ -153,6 +166,25 @@ describe('grading', () => {
     const good = `${b.neighborLabel} does not use local slope information, whereas the topic requires the gradient at each step to pick a direction.`;
     const fb = gradeResponse(b, { type: 'boundary', text: good });
     expect(fb.outcome).toBe('pass');
+  });
+
+  it('grouping: all-correct passes, majority-wrong misses and reveals', () => {
+    const g = pool.find((i) => i.type === 'grouping');
+    if (g && g.type === 'grouping') {
+      const allRight = gradeResponse(g, { type: 'grouping', placedInA: g.groupA.members });
+      expect(allRight.outcome).toBe('pass');
+      const allWrong = gradeResponse(g, { type: 'grouping', placedInA: g.groupB.members });
+      expect(allWrong.outcome).toBe('miss');
+      expect(allWrong.reveal).toBeDefined();
+    }
+  });
+
+  it('flashcard: self-grade maps straight through', () => {
+    const f = pool.find((i) => i.type === 'flashcard');
+    if (f) {
+      expect(gradeResponse(f, { type: 'flashcard', recalled: 'pass' }).outcome).toBe('pass');
+      expect(gradeResponse(f, { type: 'flashcard', recalled: 'miss' }).outcome).toBe('miss');
+    }
   });
 
   it('skip is honest: no penalty, no credit', () => {

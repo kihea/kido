@@ -99,6 +99,7 @@ export function SessionScreen({
         <main className="session-main">
           <CardView
             card={card}
+            profile={tutor.profile}
             feedback={feedback}
             judgedBy={judgedBy}
             hasModel={hasModel}

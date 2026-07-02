@@ -7,9 +7,11 @@ import type { Feedback, PracticeResponse } from '../engine';
 import { LAYER_INFO } from '../engine/layers';
 import { PracticeView } from './PracticeView';
 import { LayerRail } from './LayerRail';
+import { ConceptMap } from './ConceptMap';
 
 export function CardView({
   card,
+  profile,
   feedback,
   judgedBy,
   hasModel,
@@ -19,6 +21,7 @@ export function CardView({
   onFinishTopic,
 }: {
   card: SessionCard;
+  profile: import('../core/types').DimensionalProfile;
   feedback: Feedback | null;
   judgedBy: 'heuristic' | 'model';
   hasModel: boolean;
@@ -111,6 +114,7 @@ export function CardView({
       return (
         <article className="card">
           <h2>Where you stand</h2>
+          <ConceptMap profile={profile} />
           <LayerRail mastery={card.mastery} now={now} />
           {card.next && (
             <p className="summary-next">

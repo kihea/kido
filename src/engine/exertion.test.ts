@@ -61,6 +61,27 @@ describe('buildPracticePool', () => {
     }
   });
 
+  it('builds a grouping puzzle from comprising vs neighboring concepts', () => {
+    const g = pool.find((i) => i.type === 'grouping');
+    if (g && g.type === 'grouping') {
+      expect(g.layer).toBe(3);
+      expect(g.groupA.members.length).toBeGreaterThanOrEqual(2);
+      expect(g.groupB.members.length).toBeGreaterThanOrEqual(2);
+      // No concept appears in both groups.
+      const overlap = g.groupA.members.filter((m) => g.groupB.members.includes(m));
+      expect(overlap).toHaveLength(0);
+    }
+  });
+
+  it('builds flashcards from defined concepts with the source sentence as the back', () => {
+    const cards = pool.filter((i) => i.type === 'flashcard');
+    for (const c of cards) {
+      expect(c.front).toContain('?');
+      expect(c.back.length).toBeGreaterThan(0);
+      expect(c.layer).toBe(6);
+    }
+  });
+
   it('is deterministic: same corpus and profile → identical pool ids', () => {
     const again = buildPracticePool(corpus, buildProfile(corpus));
     expect(again.map((i) => i.id)).toEqual(pool.map((i) => i.id));

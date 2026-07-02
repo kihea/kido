@@ -43,6 +43,8 @@ export function PracticeView({
         />
       )}
       {item.type === 'map-repair' && <MapRepair item={item} answered={answered} onSubmit={onSubmit} />}
+      {item.type === 'grouping' && <Grouping item={item} answered={answered} onSubmit={onSubmit} />}
+      {item.type === 'flashcard' && <Flashcard item={item} answered={answered} onSubmit={onSubmit} />}
       {item.type === 'transfer' && (
         <Transfer item={item} answered={answered} hasModel={hasModel} onSubmit={onSubmit} />
       )}
@@ -231,6 +233,112 @@ function MapRepair({
               <kbd>{i + 1}</kbd> {gloss[o]}
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Grouping({
+  item,
+  answered,
+  onSubmit,
+}: {
+  item: Extract<PracticeItem, { type: 'grouping' }>;
+  answered: boolean;
+  onSubmit: (r: PracticeResponse) => void;
+}) {
+  // Shuffle deterministically from the item id so a review replay is identical.
+  const all = useMemo(() => {
+    const seed = parseInt(hashId('g', item.id).split('_')[1] ?? '1', 36);
+    return shuffled([...item.groupA.members, ...item.groupB.members], seededRng(seed));
+  }, [item]);
+  // null = unplaced, 'a' | 'b' = which bin.
+  const [bins, setBins] = useState<Record<string, 'a' | 'b' | null>>(() =>
+    Object.fromEntries(all.map((m) => [m, null])),
+  );
+
+  const cycle = (m: string) =>
+    setBins((b) => ({ ...b, [m]: b[m] === null ? 'a' : b[m] === 'a' ? 'b' : null }));
+
+  const allPlaced = all.every((m) => bins[m] !== null);
+
+  return (
+    <div className="practice-form">
+      <p className="practice-prompt">{item.instruction}</p>
+      <div className="grouping-legend">
+        <span><span className="bin-dot bin-a" /> {item.groupA.label}</span>
+        <span><span className="bin-dot bin-b" /> {item.groupB.label}</span>
+        <span className="bin-hint">tap to move</span>
+      </div>
+      <div className="grouping-grid">
+        {all.map((m) => (
+          <button
+            key={m}
+            type="button"
+            className={`chip chip-${bins[m] ?? 'none'}`}
+            disabled={answered}
+            onClick={() => cycle(m)}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+      {!answered && (
+        <button
+          type="button"
+          disabled={!allPlaced}
+          onClick={() =>
+            onSubmit({ type: 'grouping', placedInA: all.filter((m) => bins[m] === 'a') })
+          }
+        >
+          Lock it in
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Flashcard({
+  item,
+  answered,
+  onSubmit,
+}: {
+  item: Extract<PracticeItem, { type: 'flashcard' }>;
+  answered: boolean;
+  onSubmit: (r: PracticeResponse) => void;
+}) {
+  const [flipped, setFlipped] = useState(false);
+  return (
+    <div className="practice-form">
+      <button
+        type="button"
+        className={`flashcard${flipped ? ' is-flipped' : ''}`}
+        onClick={() => setFlipped((f) => !f)}
+        aria-label={flipped ? 'Show cue' : 'Reveal answer'}
+      >
+        {!flipped ? (
+          <span className="flashcard-front">{item.front}</span>
+        ) : (
+          <span className="flashcard-back">
+            {item.back}
+            <span className="flashcard-source">— {item.sourceTitle}</span>
+          </span>
+        )}
+      </button>
+      {!flipped && !answered && <p className="practice-source">Recall it, then flip.</p>}
+      {flipped && !answered && (
+        <div className="self-grade">
+          <span>Did you have it?</span>
+          <button type="button" onClick={() => onSubmit({ type: 'flashcard', recalled: 'pass' })}>
+            Yes
+          </button>
+          <button type="button" onClick={() => onSubmit({ type: 'flashcard', recalled: 'partial' })}>
+            Roughly
+          </button>
+          <button type="button" onClick={() => onSubmit({ type: 'flashcard', recalled: 'miss' })}>
+            No
+          </button>
         </div>
       )}
     </div>

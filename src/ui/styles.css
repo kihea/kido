@@ -507,6 +507,148 @@ kbd {
   border: 1px solid var(--line);
 }
 
+/* grouping puzzle */
+.grouping-legend {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  color: var(--ink-dim);
+  align-items: center;
+}
+.bin-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 99px;
+  margin-right: 0.35rem;
+  vertical-align: baseline;
+}
+.bin-a {
+  background: var(--accent);
+}
+.bin-b {
+  background: var(--ink-faint);
+}
+.bin-hint {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.grouping-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.chip {
+  background: var(--bg-inset);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-left-color: var(--line);
+}
+.chip-a {
+  border-left-color: var(--accent);
+}
+.chip-b {
+  border-left-color: var(--ink-faint);
+}
+.chip:hover:not(:disabled) {
+  filter: none;
+  border-color: var(--ink-dim);
+}
+
+/* flashcard */
+.flashcard {
+  width: 100%;
+  min-height: 130px;
+  background: var(--bg-inset);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 2px);
+  padding: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+}
+.flashcard:hover {
+  filter: none;
+  border-color: var(--accent);
+}
+.flashcard-front {
+  font-family: var(--serif);
+  font-size: 1.2rem;
+}
+.flashcard-back {
+  font-family: var(--serif);
+  font-size: 1rem;
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.flashcard-source {
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+}
+
+/* concept map */
+.concept-map {
+  margin: 0;
+  width: 100%;
+}
+.concept-map svg {
+  width: 100%;
+  height: auto;
+}
+.cm-boundary {
+  fill: color-mix(in srgb, var(--accent) 6%, transparent);
+  stroke: color-mix(in srgb, var(--accent) 35%, transparent);
+  stroke-dasharray: 4 4;
+}
+.cm-edge {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.cm-node circle {
+  fill: var(--ink-faint);
+  transition: fill var(--speed);
+}
+.cm-node text {
+  fill: var(--ink-dim);
+  font-size: 11px;
+  font-family: var(--sans);
+  pointer-events: none;
+}
+.cm-topic circle {
+  fill: var(--accent);
+}
+.cm-topic text {
+  fill: var(--ink);
+  font-family: var(--serif);
+  font-size: 13px;
+}
+.cm-comprising circle {
+  fill: var(--accent);
+}
+.cm-node.is-hover circle {
+  fill: var(--accent);
+}
+.cm-node.is-hover text {
+  fill: var(--ink);
+}
+.cm-node {
+  cursor: default;
+}
+.concept-map figcaption {
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+  margin-top: 0.4rem;
+  min-height: 1.4em;
+}
+
 .feedback {
   border-radius: var(--radius);
   padding: 0.8rem 1rem;

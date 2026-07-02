@@ -316,13 +316,36 @@ export interface TransferItem extends PracticeBase {
   question: string;
 }
 
+/**
+ * Grouping (Connections-style): sort a shuffled set of concepts into the two
+ * groups they belong to — the topic's comprising concepts vs. its neighbors.
+ * Trains L3 boundary discrimination through interaction, not prose.
+ */
+export interface GroupingItem extends PracticeBase {
+  type: 'grouping';
+  instruction: string;
+  groupA: { label: string; members: string[] };
+  groupB: { label: string; members: string[] };
+}
+
+/** Flashcard: a concept cue on the front, its source-grounded answer on flip. */
+export interface FlashcardItem extends PracticeBase {
+  type: 'flashcard';
+  front: string;
+  back: string;
+  sourceTitle: string;
+  sourceUrl: string;
+}
+
 export type PracticeItem =
   | ClozeItem
   | BoundaryItem
   | SequenceItem
   | FeynmanItem
   | MapRepairItem
-  | TransferItem;
+  | TransferItem
+  | GroupingItem
+  | FlashcardItem;
 
 // -- session cards ----------------------------------------------------------------
 

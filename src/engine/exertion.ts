@@ -10,6 +10,8 @@ import type {
   Corpus,
   DimensionalProfile,
   FeynmanItem,
+  FlashcardItem,
+  GroupingItem,
   Layer,
   MapRepairItem,
   PracticeItem,
@@ -198,6 +200,56 @@ function truncate(s: string, n: number): string {
 }
 
 /**
+ * Grouping puzzle (L3 boundary): sort concepts into "part of the topic" vs.
+ * "a neighbor of it". Needs enough of both to be a real discrimination, not a
+ * giveaway.
+ */
+function groupingItem(profile: DimensionalProfile): GroupingItem | null {
+  const inside = profile.comprising.slice(0, 4).map((e) => e.label);
+  const outside = profile.neighboring.slice(0, 4).map((n) => n.label);
+  if (inside.length < 2 || outside.length < 2) return null;
+  return {
+    type: 'grouping',
+    id: hashId('group', profile.topic),
+    layer: 3,
+    kind: 'boundary',
+    instruction: `Sort these into what belongs INSIDE ${profile.topic} and what only sits NEAR it.`,
+    groupA: { label: `Part of ${profile.topic}`, members: inside },
+    groupB: { label: `Neighbor, not part`, members: outside },
+    passageIds: [
+      ...profile.comprising.slice(0, 4).flatMap((e) => e.passageIds),
+      ...profile.neighboring.slice(0, 4).flatMap((n) => n.passageIds),
+    ],
+    reason: `Boundaries are learned by sorting, not by reading a definition — placing each concept forces the inside/outside call ${profile.topic} depends on.`,
+  };
+}
+
+/** Flashcards (retrieval): defined concepts, cue on the front, source answer on flip. */
+function flashcardItems(corpus: Corpus): FlashcardItem[] {
+  const out: FlashcardItem[] = [];
+  const byId = new Map(corpus.passages.map((p) => [p.id, p]));
+  for (const c of corpus.concepts.filter((c) => c.important && c.definedByPassage).slice(0, 6)) {
+    const p = byId.get(c.definedByPassage!);
+    if (!p) continue;
+    const doc = corpus.docs.get(p.docId);
+    const sentence = sentences(p.text).find((s) => new RegExp(`\\b${escapeRegExp(c.label)}\\b`, 'i').test(s)) ?? p.text;
+    out.push({
+      type: 'flashcard',
+      id: hashId('flash', c.id),
+      layer: 6,
+      kind: 'retrieval',
+      front: `What is ${c.label}?`,
+      back: sentence,
+      sourceTitle: doc?.title ?? 'source',
+      sourceUrl: p.anchorUrl ?? doc?.url ?? '',
+      passageIds: [p.id],
+      reason: `Spaced flashcards keep a concept retrievable — the answer is the source's own sentence, not a paraphrase.`,
+    });
+  }
+  return out;
+}
+
+/**
  * The full practice pool for a session. The tutor draws from this by target
  * layer; the review scheduler replays items from it across days.
  */
@@ -225,7 +277,12 @@ export function buildPracticePool(corpus: Corpus, profile: DimensionalProfile): 
     }
   }
 
+  // Grouping leads the boundary items so the hands-on discrimination puzzle is
+  // drawn before the free-text one at L3; flashcards lead retrieval at L6.
+  const grouping = groupingItem(profile);
+  if (grouping) items.push(grouping);
   items.push(...boundaryItems(profile));
+  items.push(...flashcardItems(corpus));
   items.push(...sequenceItems(corpus, profile));
   items.push(feynmanItem(profile));
   items.push(...mapRepairItems(profile));
