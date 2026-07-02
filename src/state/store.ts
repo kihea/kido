@@ -1,7 +1,7 @@
 // Learner state records. One record per topic: layer mastery, evidence,
 // review queue, notebook. Plus one settings record. All on-device.
 
-import type { DomainFamily, EvidenceEvent, MasteryVector, ReviewItem } from '../core/types';
+import type { DomainFamily, EvidenceEvent, MasteryVector, PracticeItem, ReviewItem } from '../core/types';
 import type { ModelConfig } from '../ai/types';
 import { NO_MODEL } from '../ai/types';
 import { normalize } from '../core/text';
@@ -15,6 +15,8 @@ export interface TopicRecord {
   /** Evidence ledger, newest last, capped. */
   events: EvidenceEvent[];
   reviews: ReviewItem[];
+  /** Practice items generated for this topic — reviews replay them by id. */
+  pool: PracticeItem[];
   notebook: string;
   updatedAt: number;
 }

@@ -26,6 +26,7 @@ function record(topic: string, updatedAt = T0): TopicRecord {
     mastery: initMastery(),
     events: [],
     reviews: [],
+    pool: [],
     notebook: '',
     updatedAt,
   };

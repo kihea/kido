@@ -1,0 +1,288 @@
+// One practice item, one focused action (docs/CHARTER.md: one target at a
+// time). Each item type gets exactly the interaction it needs — nothing more.
+
+import { useMemo, useState } from 'react';
+import type { PracticeItem } from '../core/types';
+import type { Feedback, PracticeResponse } from '../engine';
+import { hashId } from '../core/ids';
+import { seededRng, shuffled } from '../core/runtime';
+
+export function PracticeView({
+  item,
+  feedback,
+  judgedBy,
+  hasModel,
+  onSubmit,
+}: {
+  item: PracticeItem;
+  feedback: Feedback | null;
+  judgedBy: 'heuristic' | 'model';
+  hasModel: boolean;
+  onSubmit: (response: PracticeResponse) => void;
+}) {
+  const answered = feedback !== null;
+  return (
+    <div className="practice">
+      {item.type === 'cloze' && <Cloze item={item} answered={answered} onSubmit={onSubmit} />}
+      {item.type === 'boundary' && (
+        <FreeText
+          prompt={item.question}
+          placeholder={`Where exactly is the line between ${item.topicLabel} and ${item.neighborLabel}?`}
+          answered={answered}
+          onSubmit={(text) => onSubmit({ type: 'boundary', text })}
+        />
+      )}
+      {item.type === 'sequence' && <Sequence item={item} answered={answered} onSubmit={onSubmit} />}
+      {item.type === 'feynman' && (
+        <FreeText
+          prompt={item.prompt}
+          placeholder="Plain words. One example. One thing it is not."
+          rows={7}
+          answered={answered}
+          onSubmit={(text) => onSubmit({ type: 'feynman', text })}
+        />
+      )}
+      {item.type === 'map-repair' && <MapRepair item={item} answered={answered} onSubmit={onSubmit} />}
+      {item.type === 'transfer' && (
+        <Transfer item={item} answered={answered} hasModel={hasModel} onSubmit={onSubmit} />
+      )}
+
+      {!answered && (
+        <button type="button" className="btn-skip" onClick={() => onSubmit({ type: 'skip' })}>
+          Skip for now
+        </button>
+      )}
+
+      {feedback && (
+        <div className={`feedback feedback-${feedback.outcome}`}>
+          <p className="feedback-note">
+            {feedback.note}
+            {judgedBy === 'model' && <span className="synth-tag"> · model judgment</span>}
+          </p>
+          {feedback.reveal && <pre className="feedback-reveal">{feedback.reveal}</pre>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Cloze({
+  item,
+  answered,
+  onSubmit,
+}: {
+  item: Extract<PracticeItem, { type: 'cloze' }>;
+  answered: boolean;
+  onSubmit: (r: PracticeResponse) => void;
+}) {
+  const [text, setText] = useState('');
+  return (
+    <form
+      className="practice-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (text.trim()) onSubmit({ type: 'cloze', text });
+      }}
+    >
+      <blockquote className="excerpt-text">{item.prompt}</blockquote>
+      <p className="practice-source">— {item.sourceTitle}</p>
+      {!answered && (
+        <div className="input-row">
+          <input
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="The missing term"
+            aria-label="Fill the blank"
+          />
+          <button type="submit" disabled={!text.trim()}>
+            Check
+          </button>
+        </div>
+      )}
+    </form>
+  );
+}
+
+function FreeText({
+  prompt,
+  placeholder,
+  rows = 5,
+  answered,
+  onSubmit,
+}: {
+  prompt: string;
+  placeholder: string;
+  rows?: number;
+  answered: boolean;
+  onSubmit: (text: string) => void;
+}) {
+  const [text, setText] = useState('');
+  return (
+    <div className="practice-form">
+      <p className="practice-prompt">{prompt}</p>
+      {!answered && (
+        <>
+          <textarea
+            autoFocus
+            rows={rows}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={placeholder}
+          />
+          <button type="button" disabled={text.trim().length === 0} onClick={() => onSubmit(text)}>
+            Submit
+          </button>
+        </>
+      )}
+      {answered && text && <blockquote className="own-answer">{text}</blockquote>}
+    </div>
+  );
+}
+
+function Sequence({
+  item,
+  answered,
+  onSubmit,
+}: {
+  item: Extract<PracticeItem, { type: 'sequence' }>;
+  answered: boolean;
+  onSubmit: (r: PracticeResponse) => void;
+}) {
+  // Deterministic shuffle from the item id — same item always shows the same
+  // scramble, so a review replay is a real retest, not a new puzzle.
+  const initial = useMemo(() => {
+    const seed = parseInt(hashId('s', item.id).split('_')[1] ?? '1', 36);
+    const idx = item.steps.map((_, i) => i);
+    const mixed = shuffled(idx, seededRng(seed));
+    // Ensure it's actually scrambled.
+    return mixed.every((v, i) => v === i) ? [...mixed].reverse() : mixed;
+  }, [item]);
+  const [order, setOrder] = useState<number[]>(initial);
+
+  const move = (pos: number, dir: -1 | 1) => {
+    setOrder((o) => {
+      const next = [...o];
+      const j = pos + dir;
+      if (j < 0 || j >= next.length) return o;
+      [next[pos], next[j]] = [next[j]!, next[pos]!];
+      return next;
+    });
+  };
+
+  return (
+    <div className="practice-form">
+      <p className="practice-prompt">{item.instruction}</p>
+      <ol className="sequence-list">
+        {order.map((stepIdx, pos) => (
+          <li key={stepIdx} className="sequence-step">
+            <span className="sequence-text">{item.steps[stepIdx]}</span>
+            {!answered && (
+              <span className="sequence-controls">
+                <button type="button" aria-label="Move up" disabled={pos === 0} onClick={() => move(pos, -1)}>
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  aria-label="Move down"
+                  disabled={pos === order.length - 1}
+                  onClick={() => move(pos, 1)}
+                >
+                  ↓
+                </button>
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+      {!answered && (
+        <button type="button" onClick={() => onSubmit({ type: 'sequence', order })}>
+          This is the order
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MapRepair({
+  item,
+  answered,
+  onSubmit,
+}: {
+  item: Extract<PracticeItem, { type: 'map-repair' }>;
+  answered: boolean;
+  onSubmit: (r: PracticeResponse) => void;
+}) {
+  const gloss: Record<string, string> = {
+    requires: 'is required by',
+    'part-of': 'is part of',
+    'mechanism-of': 'is a mechanism of',
+    'example-of': 'is an example within',
+  };
+  return (
+    <div className="practice-form">
+      <p className="practice-prompt">
+        <strong>{item.fromLabel}</strong> ␣␣?␣␣ <strong>{item.toLabel}</strong> — which relation holds?
+      </p>
+      {!answered && (
+        <div className="option-grid">
+          {item.options.map((o, i) => (
+            <button key={o} type="button" onClick={() => onSubmit({ type: 'map-repair', choice: o })}>
+              <kbd>{i + 1}</kbd> {gloss[o]}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Transfer({
+  item,
+  answered,
+  hasModel,
+  onSubmit,
+}: {
+  item: Extract<PracticeItem, { type: 'transfer' }>;
+  answered: boolean;
+  hasModel: boolean;
+  onSubmit: (r: PracticeResponse) => void;
+}) {
+  const [text, setText] = useState('');
+  return (
+    <div className="practice-form">
+      <p className="practice-scenario">{item.scenario}</p>
+      <p className="practice-prompt">{item.question}</p>
+      {!answered && (
+        <>
+          <textarea
+            autoFocus
+            rows={6}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Run it. Name what survives, what breaks, and why."
+          />
+          {hasModel ? (
+            <button type="button" disabled={text.trim().length === 0} onClick={() => onSubmit({ type: 'transfer', text })}>
+              Submit for evaluation
+            </button>
+          ) : (
+            <div className="self-grade">
+              <span>Then grade yourself — harshly:</span>
+              <button type="button" disabled={!text.trim()} onClick={() => onSubmit({ type: 'transfer', text, selfGrade: 'pass' })}>
+                Held up
+              </button>
+              <button type="button" disabled={!text.trim()} onClick={() => onSubmit({ type: 'transfer', text, selfGrade: 'partial' })}>
+                Partly
+              </button>
+              <button type="button" disabled={!text.trim()} onClick={() => onSubmit({ type: 'transfer', text, selfGrade: 'miss' })}>
+                It broke
+              </button>
+            </div>
+          )}
+        </>
+      )}
+      {answered && text && <blockquote className="own-answer">{text}</blockquote>}
+    </div>
+  );
+}
