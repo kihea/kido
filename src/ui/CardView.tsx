@@ -113,20 +113,47 @@ export function CardView({
       const now = Date.now();
       return (
         <article className="card">
-          <h2>Where you stand</h2>
+          <h2>Where you are on the loop</h2>
           <ConceptMap profile={profile} />
           <LayerRail mastery={card.mastery} now={now} />
-          {card.next && (
-            <p className="summary-next">
-              Next: the <strong>{LAYER_INFO[card.next.layer].name}</strong> layer. {card.next.why}
+          {card.collapse && (
+            <aside className={`collapse-flag ${card.collapse.anchorState}`}>
+              <h3>{card.collapse.anchorState === 'untested' ? 'Unverified anchor' : 'Possible collapse'}</h3>
+              <p>{card.collapse.reason}</p>
+              <p className="collapse-honesty">
+                {profile.layers[4].claims.length === 0
+                  ? 'Your sources are thin at the embodiment layer — this can only be settled against a real case. Research one worked example and test yourself on it.'
+                  : 'A flag, not a verdict — it clears the moment you demonstrate one concrete instance, and hardens only if the instance fails.'}
+              </p>
+            </aside>
+          )}
+          {card.direction && (
+            <p className="summary-direction">
+              <strong>{card.direction.label === 'stuck-ascending' ? 'Stuck ascending.' : 'Stuck descending.'}</strong>{' '}
+              {card.direction.line}
             </p>
           )}
+          {card.next && (
+            <>
+              <p className="summary-next">
+                Next turn: the <strong>{LAYER_INFO[card.next.layer].name}</strong> layer. {card.next.why}
+              </p>
+              {card.next.mirror && <p className="summary-mirror">{card.next.mirror.note}</p>}
+            </>
+          )}
+          <p className="summary-turn">
+            {card.turn.note}
+            {card.turn.visited.length > 0 &&
+              ` This pass touched ${card.turn.visited.length} of 9 layers: ${card.turn.visited
+                .map((l) => LAYER_INFO[l].name)
+                .join(', ')}.`}
+          </p>
           <p className="summary-note">
-            What you exercised today enters spaced review — it comes back before it fades.
+            What you exercised enters spaced review — it comes back before it fades.
           </p>
           <div className="card-actions">
             <button type="button" autoFocus onClick={onFinishTopic}>
-              Done
+              Close this turn
             </button>
           </div>
         </article>

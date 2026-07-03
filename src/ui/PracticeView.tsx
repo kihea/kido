@@ -48,6 +48,9 @@ export function PracticeView({
       {item.type === 'transfer' && (
         <Transfer item={item} answered={answered} hasModel={hasModel} onSubmit={onSubmit} />
       )}
+      {item.type === 'potential' && (
+        <Potential item={item} answered={answered} hasModel={hasModel} onSubmit={onSubmit} />
+      )}
 
       {!answered && (
         <button type="button" className="btn-skip" onClick={() => onSubmit({ type: 'skip' })}>
@@ -175,6 +178,7 @@ function Sequence({
   return (
     <div className="practice-form">
       <p className="practice-prompt">{item.instruction}</p>
+      <p className="sequence-direction">Arrange top → bottom, earliest first. Use the arrows.</p>
       <ol className="sequence-list">
         {order.map((stepIdx, pos) => (
           <li key={stepIdx} className="sequence-step">
@@ -215,11 +219,13 @@ function MapRepair({
   answered: boolean;
   onSubmit: (r: PracticeResponse) => void;
 }) {
+  // Read as "{from} __ {to}" — phrased so each option is a natural claim, not
+  // a stiff relation label ("making → the printing press" reads as "goes into").
   const gloss: Record<string, string> = {
-    requires: 'is required by',
-    'part-of': 'is part of',
-    'mechanism-of': 'is a mechanism of',
-    'example-of': 'is an example within',
+    requires: 'is needed for',
+    'part-of': 'goes into',
+    'mechanism-of': 'is how it works',
+    'example-of': 'is an example of',
   };
   return (
     <div className="practice-form">
@@ -385,6 +391,55 @@ function Transfer({
               </button>
               <button type="button" disabled={!text.trim()} onClick={() => onSubmit({ type: 'transfer', text, selfGrade: 'miss' })}>
                 It broke
+              </button>
+            </div>
+          )}
+        </>
+      )}
+      {answered && text && <blockquote className="own-answer">{text}</blockquote>}
+    </div>
+  );
+}
+
+function Potential({
+  item,
+  answered,
+  hasModel,
+  onSubmit,
+}: {
+  item: Extract<PracticeItem, { type: 'potential' }>;
+  answered: boolean;
+  hasModel: boolean;
+  onSubmit: (r: PracticeResponse) => void;
+}) {
+  const [text, setText] = useState('');
+  return (
+    <div className="practice-form">
+      <p className="practice-prompt">{item.prompt}</p>
+      {!answered && (
+        <>
+          <textarea
+            autoFocus
+            rows={5}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Name one live alternative — and what selecting it away gave up."
+          />
+          {hasModel ? (
+            <button type="button" disabled={!text.trim()} onClick={() => onSubmit({ type: 'potential', text })}>
+              Submit
+            </button>
+          ) : (
+            <div className="self-grade">
+              <span>Did you name a real alternative?</span>
+              <button type="button" disabled={!text.trim()} onClick={() => onSubmit({ type: 'potential', text, selfGrade: 'pass' })}>
+                Yes
+              </button>
+              <button type="button" disabled={!text.trim()} onClick={() => onSubmit({ type: 'potential', text, selfGrade: 'partial' })}>
+                Roughly
+              </button>
+              <button type="button" disabled={!text.trim()} onClick={() => onSubmit({ type: 'potential', text, selfGrade: 'miss' })}>
+                No
               </button>
             </div>
           )}

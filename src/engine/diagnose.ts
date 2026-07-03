@@ -4,14 +4,18 @@
 
 import type {
   DiagnosticCard,
+  DirectionalImbalance,
   DimensionalProfile,
+  Direction,
+  DirectionVector,
+  DirectionalReading,
   DomainFamily,
   Layer,
   MasteryVector,
   MoveKind,
 } from '../core/types';
 import { hashId } from '../core/ids';
-import { effectiveMastery } from './mastery';
+import { detectCollapse, effectiveMastery } from './mastery';
 import { LAYER_INFO } from './layers';
 
 /** Layer value weights per domain family (pedagogy matrix §1). */
@@ -70,11 +74,59 @@ export function inferDomainFamily(topic: string, sampleText = ''): DomainFamily 
  * teach (has claims). Unknown layers rank as weak-but-promising; the entry
  * sequence breaks ties early in a session.
  */
+// -- directional imbalance (framework Ch 14) ------------------------------------
+
+export const DIRECTION_MIN_EVIDENCE = 3;
+export const DIRECTION_GAP = 0.25;
+export const DIRECTION_WEAK_BOOST = 1.3;
+export const DIRECTION_STRONG_DAMP = 0.85;
+
+/** Each teachable layer's home direction (KIND_DIRECTION projected through layers). */
+export const LAYER_DIRECTION: Partial<Record<Layer, Direction>> = {
+  1: 'up',
+  2: 'down',
+  3: 'down',
+  4: 'down',
+  5: 'down',
+  6: 'up',
+  7: 'up',
+  8: 'down',
+};
+
+/** A real up/down competence gap, or null when under-evidenced or balanced. */
+export function detectImbalance(direction: DirectionVector, now: number): DirectionalImbalance | null {
+  if (direction.up.evidence < DIRECTION_MIN_EVIDENCE || direction.down.evidence < DIRECTION_MIN_EVIDENCE) {
+    return null; // one-sided evidence is unknown, not imbalance
+  }
+  const u = effectiveMastery(direction.up, now)!;
+  const d = effectiveMastery(direction.down, now)!;
+  const gap = Math.abs(u - d);
+  if (gap < DIRECTION_GAP) return null;
+  return { weak: u < d ? 'up' : 'down', gap, upEffective: u, downEffective: d };
+}
+
+/** Name a directional imbalance in the learner's terms (Ch 14's two failures). */
+export function describeImbalance(imb: DirectionalImbalance): DirectionalReading {
+  if (imb.weak === 'down') {
+    return {
+      ...imb,
+      label: 'stuck-ascending',
+      line: `You can state it — but can you apply it? Your passes cluster on naming, explaining, and relating; deciding cases, running the process, and predicting under change are where it slips. The next moves lean that way.`,
+    };
+  }
+  return {
+    ...imb,
+    label: 'stuck-descending',
+    line: `You can work the cases — but can you say what they add up to? Your passes cluster on applying and deciding; the plain-language statement and the relations between concepts are where it slips. The next moves lean that way.`,
+  };
+}
+
 export function chooseTargetLayer(
   profile: DimensionalProfile,
   mastery: MasteryVector,
   family: DomainFamily,
   now: number,
+  direction?: DirectionVector,
 ): Layer {
   const weights = DOMAIN_WEIGHTS[family];
   const entry = ENTRY_SEQUENCE[family];
@@ -82,6 +134,15 @@ export function chooseTargetLayer(
     (l) => profile.layers[l].claims.length > 0 || (l === 3 && profile.neighboring.length > 0),
   );
   if (teachable.length === 0) return 6;
+
+  // Collapse interrupt (Ch 8: "demand the instance"): fluent upper layers over a
+  // weak/untested embodiment anchor route straight to L4, when it can be taught.
+  const collapse = detectCollapse(mastery, now);
+  if (collapse !== null && teachable.includes(4)) return 4;
+
+  // Directional bias (Ch 14): only fires past the evidence gate; a tiebreaker-plus
+  // that cannot outweigh a genuinely unknown or very weak layer.
+  const imb = direction ? detectImbalance(direction, now) : null;
 
   let best: Layer = teachable[0]!;
   let bestScore = -Infinity;
@@ -94,7 +155,15 @@ export function chooseTargetLayer(
     const gap = eff === null ? 0.85 : 1 - eff; // unknown ≈ probably weak, worth probing
     const entryIdx = entry.indexOf(l);
     const entryBias = entryIdx >= 0 ? (entry.length - entryIdx) * 0.02 : 0;
-    const score = value * gap + entryBias;
+    const boost =
+      imb === null
+        ? 1
+        : LAYER_DIRECTION[l] === imb.weak
+          ? DIRECTION_WEAK_BOOST
+          : LAYER_DIRECTION[l] === undefined
+            ? 1
+            : DIRECTION_STRONG_DAMP;
+    const score = value * gap * boost + entryBias;
     if (score > bestScore) {
       best = l;
       bestScore = score;
@@ -170,6 +239,7 @@ export function buildGauge(
   pool: import('../core/types').PracticeItem[],
   family: DomainFamily,
   max = 4,
+  deep = false,
 ): import('../core/types').PracticeItem[] {
   const weights = DOMAIN_WEIGHTS[family];
   // Quick to answer and objectively gradable; no essays in a gauge.
@@ -183,5 +253,11 @@ export function buildGauge(
     if (!byLayer.has(item.layer)) byLayer.set(item.layer, item);
     if (byLayer.size >= max) break;
   }
-  return [...byLayer.values()];
+  const picked = [...byLayer.values()];
+  // Deep gauge (opt-in, advanced): close on the L0 possibility question.
+  if (deep) {
+    const l0 = pool.find((i) => i.layer === 0);
+    if (l0) picked.push(l0);
+  }
+  return picked;
 }

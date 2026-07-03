@@ -1,7 +1,14 @@
 // Learner state records. One record per topic: layer mastery, evidence,
 // review queue, notebook. Plus one settings record. All on-device.
 
-import type { DomainFamily, EvidenceEvent, MasteryVector, PracticeItem, ReviewItem } from '../core/types';
+import type {
+  DirectionVector,
+  DomainFamily,
+  EvidenceEvent,
+  MasteryVector,
+  PracticeItem,
+  ReviewItem,
+} from '../core/types';
 import type { ModelConfig } from '../ai/types';
 import { NO_MODEL } from '../ai/types';
 import { normalize } from '../core/text';
@@ -12,6 +19,8 @@ export interface TopicRecord {
   topic: string; // display form
   family: DomainFamily;
   mastery: MasteryVector;
+  /** Up/down competence (framework Ch 13–14); optional for records saved before it existed. */
+  direction?: DirectionVector;
   /** Evidence ledger, newest last, capped. */
   events: EvidenceEvent[];
   reviews: ReviewItem[];
@@ -28,6 +37,8 @@ export interface Settings {
   theme: 'dark' | 'light';
   /** Optional: joins OpenAlex's "polite pool" for faster, more reliable results. */
   politeEmail?: string;
+  /** Opt-in: append the L0 possibility probe to the opening gauge (advanced). */
+  deepGauge?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = { model: NO_MODEL, reach: 0.5, theme: 'dark' };

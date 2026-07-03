@@ -62,6 +62,16 @@ export interface LayerInfo {
   gloss: string;
 }
 
+/** One mirrored polarity of the stack (framework Ch 10): symmetric about L4. */
+export interface MirrorPair {
+  lower: Layer;
+  upper: Layer;
+  /** Learner-facing name of the polarity, e.g. "the two limits". */
+  name: string;
+  /** One-line gloss of what the pairing means. */
+  gloss: string;
+}
+
 export interface LayerTag {
   layer: Layer;
   /** 0..1 heuristic (or model) confidence. */
@@ -204,7 +214,8 @@ export type EvidenceKind =
   | 'retrieval' // L6: recall the concept from a cue
   | 'feynman' // L6/L7: plain-language reconstruction
   | 'map-repair' // L7: place a missing relation
-  | 'transfer'; // L8: apply the principle in a new case
+  | 'transfer' // L8: apply the principle in a new case
+  | 'potential'; // L0: name the alternatives this was selected from
 
 export type Outcome = 'pass' | 'partial' | 'miss' | 'skipped';
 
@@ -227,6 +238,58 @@ export interface LayerMastery {
 }
 
 export type MasteryVector = Record<Layer, LayerMastery>;
+
+// -- directional competence (framework Ch 13–14) --------------------------------
+
+/**
+ * The direction of navigation a piece of evidence certifies (Ch 13):
+ * 'up' = averaging/consolidation (many → one: name it, state it, relate it),
+ * 'down' = exertion/application (one → case: instantiate, decide, run, predict).
+ */
+export type Direction = 'up' | 'down';
+
+/**
+ * Pooled per-direction mastery across all layers. Reuses the LayerMastery
+ * shape so effectiveMastery() and its staleness policy apply unchanged.
+ * Untested direction = unknown, never 0.5 — same discipline as MasteryVector.
+ */
+export type DirectionVector = Record<Direction, LayerMastery>;
+
+/** A detected directional imbalance — only ever produced past the evidence gate. */
+export interface DirectionalImbalance {
+  /** The weaker direction — moves should bias toward practice that exercises it. */
+  weak: Direction;
+  /** |effective(up) − effective(down)|, ≥ DIRECTION_GAP by construction. */
+  gap: number;
+  upEffective: number;
+  downEffective: number;
+}
+
+/** The learner-facing naming of an imbalance (Ch 14's two directional failures). */
+export interface DirectionalReading extends DirectionalImbalance {
+  /** 'stuck-ascending' = weak down (can average, can't exert); 'stuck-descending' = weak up. */
+  label: 'stuck-ascending' | 'stuck-descending';
+  /** One deterministic sentence naming the failure. */
+  line: string;
+}
+
+/**
+ * Collapse signal (framework Ch 8, 14): upper layers that test fluent while
+ * the embodiment anchor beneath them is weak or was never exercised.
+ * Recomputed at read time from the evidence ledger — never stored.
+ */
+export interface CollapseSignal {
+  /** Upper layers (L6–L8) with strong, sufficiently evidenced mastery. */
+  upperLayers: Layer[];
+  /** The lower anchor under suspicion — v1 is always 4 (embodiment). */
+  anchorLayer: Layer;
+  /** 'untested': never exercised (possible). 'failing': exercised and weak (demonstrated). */
+  anchorState: 'untested' | 'failing';
+  /** 0..1 — scales UI emphasis only; the gate is the signal's existence. */
+  severity: number;
+  /** Evidence-citing explanation — every signal states its reason, like every item. */
+  reason: string;
+}
 
 // -- teaching moves -------------------------------------------------------------
 
@@ -337,6 +400,16 @@ export interface FlashcardItem extends PracticeBase {
   sourceUrl: string;
 }
 
+/** Potential (L0): what else could have been the case, from which this was selected? */
+export interface PotentialItem extends PracticeBase {
+  type: 'potential';
+  prompt: string;
+  /** Alternatives the profile actually knows (neighbor labels) — the reveal, never fabricated. */
+  alternatives: string[];
+  /** Verbatim L0 excerpt (possibility/frontier material) shown on reveal, when the sources carry one. */
+  frontierExcerpt?: string;
+}
+
 export type PracticeItem =
   | ClozeItem
   | BoundaryItem
@@ -345,7 +418,8 @@ export type PracticeItem =
   | MapRepairItem
   | TransferItem
   | GroupingItem
-  | FlashcardItem;
+  | FlashcardItem
+  | PotentialItem;
 
 // -- session cards ----------------------------------------------------------------
 
@@ -398,8 +472,19 @@ export interface SummaryCard {
   kind: 'summary';
   id: string;
   mastery: MasteryVector;
-  /** The layer the learner should visit next, with why. */
-  next: { layer: Layer; why: string } | null;
+  /** The layer the next turn passes through, with why — never "the last layer". */
+  next: {
+    layer: Layer;
+    why: string;
+    /** Present only when the mirror partner has demonstrated evidence (framing, not math). */
+    mirror?: { layer: Layer; note: string };
+  } | null;
+  /** No-summit framing (Ch 11-12, 22): what this pass touched, as one turn of the spiral. */
+  turn: { visited: Layer[]; note: string };
+  /** Present only when detectImbalance fired — absence means balanced or under-evidenced. */
+  direction?: DirectionalReading;
+  /** Present only when detectCollapse fires at session end. */
+  collapse?: CollapseSignal;
 }
 
 export type SessionCard =

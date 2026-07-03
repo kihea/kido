@@ -2,7 +2,7 @@
 // glosses. The engine stores all nine layers; the UI may compress to the
 // seven-position working stack (L0·L1 merged, L7·L8 merged).
 
-import type { Layer, LayerInfo } from '../core/types';
+import type { Layer, LayerInfo, MirrorPair } from '../core/types';
 
 export const LAYER_INFO: Record<Layer, LayerInfo> = {
   0: {
@@ -77,6 +77,54 @@ export const WORKING_STACK: readonly Layer[][] = [
 
 export function layerName(layer: Layer): string {
   return LAYER_INFO[layer].name;
+}
+
+/**
+ * The stack is symmetric about embodiment (framework Ch 10): L0↔L8, L1↔L7,
+ * L2↔L6, L3↔L5; L4 is the axis, paired with itself. Framing and display only —
+ * mirror partnership never feeds mastery math (Ch 13: understanding is a vector).
+ */
+export const MIRROR_PAIRS: readonly MirrorPair[] = [
+  {
+    lower: 0,
+    upper: 8,
+    name: 'the two nothingnesses',
+    gloss: 'open possibility below, pure constraint above — the blank before the mark and the blank after distillation',
+  },
+  {
+    lower: 1,
+    upper: 7,
+    name: 'the two infinities',
+    gloss: 'no limit to the units you can posit; no limit to the systems that can hold them',
+  },
+  {
+    lower: 2,
+    upper: 6,
+    name: 'variation and its compression',
+    gloss: 'extent opens the gradients instances differ along; concept closes them into one idea',
+  },
+  {
+    lower: 3,
+    upper: 5,
+    name: 'the two limits',
+    gloss: 'boundary is where it stops being itself in form; time is where it stops being itself in change',
+  },
+  { lower: 4, upper: 4, name: 'the axis', gloss: 'embodiment is the mirror itself — the one layer paired with itself' },
+];
+
+/** Mirror presentation of the full nine-layer stack, folded about L4. */
+export const MIRROR_STACK: readonly Layer[][] = MIRROR_PAIRS.map((p) =>
+  p.lower === p.upper ? [p.lower] : [p.lower, p.upper],
+);
+
+/** The mirror partner of a layer (involution l ↦ 8 − l; unique fixed point is L4). */
+export function mirrorLayer(layer: Layer): Layer {
+  return (8 - layer) as Layer;
+}
+
+/** The mirror pair a layer belongs to (both members return the same object). */
+export function mirrorPairOf(layer: Layer): MirrorPair {
+  return MIRROR_PAIRS[Math.min(layer, 8 - layer)]!;
 }
 
 /** Layers worth teaching directly (L0 is background; surfaced only on request). */

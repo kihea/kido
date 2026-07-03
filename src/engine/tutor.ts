@@ -6,6 +6,7 @@ import type {
   ComprisingRelation,
   Corpus,
   DimensionalProfile,
+  DirectionVector,
   DomainFamily,
   EvidenceEvent,
   ExcerptCard,
@@ -20,18 +21,34 @@ import type {
   SessionCard,
   SummaryCard,
 } from '../core/types';
+import { LAYERS } from '../core/types';
 import { hashId } from '../core/ids';
 import { contentWords, normalize, wordCount } from '../core/text';
-import { buildGauge, chooseTargetLayer, moveForLayer } from './diagnose';
+import {
+  buildGauge,
+  chooseTargetLayer,
+  describeImbalance,
+  detectImbalance,
+  moveForLayer,
+} from './diagnose';
 import { buildPracticePool, itemsForLayer } from './exertion';
-import { applyEvidence, effectiveMastery, initMastery } from './mastery';
-import { LAYER_INFO } from './layers';
+import {
+  applyDirectionalEvidence,
+  applyEvidence,
+  detectCollapse,
+  effectiveMastery,
+  initDirection,
+  initMastery,
+} from './mastery';
+import { LAYER_INFO, mirrorLayer, mirrorPairOf } from './layers';
 
 export interface TutorState {
   corpus: Corpus;
   profile: DimensionalProfile;
   family: DomainFamily;
   mastery: MasteryVector;
+  /** Up/down competence, parallel to mastery (framework Ch 13–14). */
+  direction: DirectionVector;
   pool: PracticeItem[];
   cards: SessionCard[];
   usedItemIds: string[];
@@ -51,6 +68,10 @@ export interface TutorOptions {
   /** Teaching+practice card budget for the session (excludes gauge/summary). */
   maxCards?: number;
   mastery?: MasteryVector;
+  /** Directional history — persists across sessions exactly like mastery. */
+  direction?: DirectionVector;
+  /** Opt-in deeper gauge: appends the single L0 potential probe (advanced; default off). */
+  deepGauge?: boolean;
   /** Clock reading at session start (staleness in target choice). */
   now?: number;
 }
@@ -63,12 +84,13 @@ export function startSession(
   opts: TutorOptions,
 ): { state: TutorState; card: SessionCard } {
   const pool = buildPracticePool(corpus, profile);
-  const gauge = buildGauge(pool, opts.family);
+  const gauge = buildGauge(pool, opts.family, 4, opts.deepGauge ?? false);
   const base: TutorState = {
     corpus,
     profile,
     family: opts.family,
     mastery: opts.mastery ?? initMastery(),
+    direction: opts.direction ?? initDirection(),
     pool,
     cards: [],
     usedItemIds: [],
@@ -213,7 +235,7 @@ export function next(state: TutorState, now: number): { state: TutorState; card:
       return { state: nextState, card };
     }
     // Gauge spent: pick the first target from the seeded evidence.
-    const target = chooseTargetLayer(state.profile, state.mastery, state.family, now);
+    const target = chooseTargetLayer(state.profile, state.mastery, state.family, now, state.direction);
     return next({ ...state, phase: 'teach', target, stepsAtTarget: 0 }, now);
   }
 
@@ -221,7 +243,7 @@ export function next(state: TutorState, now: number): { state: TutorState; card:
   let target = state.target;
   let steps = state.stepsAtTarget;
   if (steps >= MAX_STEPS_AT_TARGET) {
-    target = chooseTargetLayer(state.profile, state.mastery, state.family, now);
+    target = chooseTargetLayer(state.profile, state.mastery, state.family, now, state.direction);
     steps = 0;
   }
 
@@ -248,12 +270,7 @@ export function next(state: TutorState, now: number): { state: TutorState; card:
   const item = pickVaried(available, state.cards);
   if (!item) {
     // Nothing to exercise at this layer — teach a different one.
-    const reTarget = chooseTargetLayer(
-      state.profile,
-      state.mastery,
-      state.family,
-      now,
-    );
+    const reTarget = chooseTargetLayer(state.profile, state.mastery, state.family, now, state.direction);
     const moved: TutorState = { ...state, phase: 'teach', target: reTarget, stepsAtTarget: 0 };
     return next(moved, now);
   }
@@ -285,20 +302,42 @@ function pickVaried(available: PracticeItem[], cards: SessionCard[]): PracticeIt
 }
 
 function finish(state: TutorState, now: number): { state: TutorState; card: SummaryCard } {
-  const nextLayer = chooseTargetLayer(state.profile, state.mastery, state.family, now);
+  const nextLayer = chooseTargetLayer(state.profile, state.mastery, state.family, now, state.direction);
   const eff = effectiveMastery(state.mastery[nextLayer], now);
   const info = LAYER_INFO[nextLayer];
+
+  // No-summit framing (Ch 11–12, 22): the next layer is a turn of the spiral,
+  // never a finish line. Name the mirror partner only when it's been worked.
+  const why =
+    eff === null
+      ? `The ${info.name} layer is untested — ${info.question.toLowerCase()} The next turn starts there.`
+      : `The ${info.name} layer is where your circulation is thinnest right now — the next turn passes through it.`;
+  const partner = mirrorLayer(nextLayer);
+  const mirror =
+    partner !== nextLayer && state.mastery[partner].evidence > 0
+      ? {
+          layer: partner,
+          note: `Across the mirror, ${info.name} pairs with ${LAYER_INFO[partner].name} — ${mirrorPairOf(nextLayer).name}. You have already worked that face.`,
+        }
+      : undefined;
+
+  const visited = LAYERS.filter((l) => state.events.some((e) => e.layer === l && e.outcome !== 'skipped'));
+
+  // Directional and collapse readings (Ch 14, Ch 8): each fires only past its gate.
+  const imb = detectImbalance(state.direction, now);
+  const collapse = detectCollapse(state.mastery, now);
+
   const card: SummaryCard = {
     kind: 'summary',
     id: hashId('sum', `${state.profile.topic}|${state.cards.length}`),
     mastery: state.mastery,
-    next: {
-      layer: nextLayer,
-      why:
-        eff === null
-          ? `The ${info.name} layer is untested — ${info.question.toLowerCase()}`
-          : `The ${info.name} layer is your weakest demonstrated layer right now.`,
+    next: { layer: nextLayer, why, ...(mirror ? { mirror } : {}) },
+    turn: {
+      visited,
+      note: 'The stack is a loop, not a ladder — up and down meet, and a principle fully grasped opens new potential. Nothing here finishes; it goes one turn deeper.',
     },
+    ...(imb ? { direction: describeImbalance(imb) } : {}),
+    ...(collapse ? { collapse } : {}),
   };
   return {
     state: { ...state, phase: 'done', cards: [...state.cards, card] },
@@ -317,6 +356,7 @@ export type PracticeResponse =
   | { type: 'transfer'; text: string; selfGrade?: 'pass' | 'partial' | 'miss' }
   | { type: 'grouping'; placedInA: string[] } // labels the learner put in group A
   | { type: 'flashcard'; recalled: 'pass' | 'partial' | 'miss' } // self-graded on flip
+  | { type: 'potential'; text: string; selfGrade?: 'pass' | 'partial' | 'miss' }
   | { type: 'skip' };
 
 export interface Feedback {
@@ -466,6 +506,32 @@ export function gradeResponse(item: PracticeItem, response: PracticeResponse): F
             : 'Noted — this one comes back sooner.',
       };
     }
+    case 'potential': {
+      if (response.type !== 'potential') break;
+      const reveal =
+        `Alternatives the profile knows: ${item.alternatives.join(', ')}` +
+        (item.frontierExcerpt ? `\nFrom the sources: “${item.frontierExcerpt}”` : '');
+      if (response.selfGrade) {
+        return {
+          outcome: response.selfGrade,
+          note: 'Self-graded. The else is easy to gesture at and hard to name — hold yourself to a named alternative.',
+          reveal,
+        };
+      }
+      const words = wordCount(response.text);
+      const namesAlt = item.alternatives.some((a) => normalize(response.text).includes(normalize(a)));
+      if (words >= 15 && namesAlt) {
+        return { outcome: 'pass', note: 'You named the else, not just the thing — that is the L0 move.', reveal };
+      }
+      return {
+        outcome: words >= 25 ? 'partial' : 'miss',
+        note:
+          words >= 25
+            ? "Recorded — an alternative the profile doesn't know can't be auto-checked. Compare against the reveal, then be honest."
+            : 'Point at a real alternative, not at the fact that alternatives exist.',
+        reveal,
+      };
+    }
   }
   return { outcome: 'skipped', note: 'Response type did not match the item — treated as a skip.' };
 }
@@ -473,13 +539,13 @@ export function gradeResponse(item: PracticeItem, response: PracticeResponse): F
 function relationGloss(r: ComprisingRelation): string {
   switch (r) {
     case 'requires':
-      return 'is required by';
+      return 'is needed for';
     case 'part-of':
-      return 'is part of';
+      return 'goes into';
     case 'mechanism-of':
-      return 'is a mechanism of';
+      return 'is how it works';
     case 'example-of':
-      return 'is an example within';
+      return 'is an example of';
   }
 }
 
@@ -500,9 +566,11 @@ export function applyResponse(
     itemId: item.id,
     ...(hinted ? { hinted: true } : {}),
   };
+  // One event feeds both ledgers — per-layer mastery and up/down direction.
   const mastery = applyEvidence(state.mastery, event);
+  const direction = applyDirectionalEvidence(state.direction, event);
   return {
-    state: { ...state, mastery, events: [...state.events, event] },
+    state: { ...state, mastery, direction, events: [...state.events, event] },
     feedback,
     event,
   };

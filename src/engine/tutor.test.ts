@@ -192,3 +192,88 @@ describe('grading', () => {
     expect(gradeResponse(any, { type: 'skip' }).outcome).toBe('skipped');
   });
 });
+
+describe('no-summit summary (framework Ch 11–12, 22)', () => {
+  function runToSummary(inputs: 'skip' | 'answer') {
+    let { state } = makeSession();
+    let summary = null;
+    for (let i = 0; i < 40; i++) {
+      const r = next(state, T0 + i);
+      state = r.state;
+      if (r.card.kind === 'summary') {
+        summary = r.card;
+        break;
+      }
+      if (r.card.kind === 'practice') {
+        const item = r.card.item;
+        const resp =
+          inputs === 'answer' && item.type === 'cloze'
+            ? ({ type: 'cloze', text: item.answer } as const)
+            : ({ type: 'skip' } as const);
+        state = applyResponse(state, item, resp, T0 + i).state;
+      }
+    }
+    return summary!;
+  }
+
+  it('reframes to circulation: turn note present, no completion language', () => {
+    const s = runToSummary('skip');
+    expect(s.turn.note).toMatch(/one turn deeper/);
+    expect(`${s.turn.note} ${s.next?.why ?? ''}`).not.toMatch(/\b(finished|complete|completed|mastered|done)\b/i);
+  });
+
+  it('an all-skip session has an empty visited list and no mirror note', () => {
+    const s = runToSummary('skip');
+    expect(s.turn.visited).toEqual([]);
+    expect(s.next?.mirror).toBeUndefined(); // skips add no evidence
+  });
+
+  it('untested next layer gets next-turn framing', () => {
+    const s = runToSummary('skip');
+    expect(s.next?.why).toContain('untested');
+    expect(s.next?.why).toContain('next turn');
+  });
+
+  it('is deterministic across identical runs', () => {
+    expect(JSON.stringify(runToSummary('answer'))).toBe(JSON.stringify(runToSummary('answer')));
+  });
+});
+
+describe('L0 potential item', () => {
+  const corpus = fixtureCorpus();
+  const profile = buildProfile(corpus);
+  const { state } = startSession(corpus, profile, { family: 'ml', deepGauge: true });
+  const pot = state.pool.find((i) => i.type === 'potential');
+
+  it('is generated from the profile, grounded in known alternatives', () => {
+    expect(pot).toBeDefined();
+    if (pot && pot.type === 'potential') {
+      expect(pot.layer).toBe(0);
+      expect(pot.alternatives.every((a) => profile.neighboring.some((n) => n.label === a))).toBe(true);
+    }
+  });
+
+  it('grades a named alternative as a pass and reveals the known ones otherwise', () => {
+    if (pot && pot.type === 'potential') {
+      const alt = pot.alternatives[0]!;
+      const good = gradeResponse(pot, {
+        type: 'potential',
+        text: `It could have been ${alt} standing here instead, and choosing this over it gave up the different trade-offs that ${alt} would have brought to the same problem.`,
+      });
+      expect(good.outcome).toBe('pass');
+      const vague = gradeResponse(pot, { type: 'potential', text: 'dunno' });
+      expect(vague.outcome).toBe('miss');
+      expect(vague.reveal).toContain(alt);
+    }
+  });
+
+  it('the deep gauge threads the L0 probe in; the default gauge does not', () => {
+    const withDeep = startSession(corpus, profile, { family: 'ml', deepGauge: true }).state;
+    const without = startSession(corpus, profile, { family: 'ml' }).state;
+    const l0Id = pot?.id;
+    if (l0Id) {
+      expect(withDeep.gaugeIds).toContain(l0Id);
+      expect(without.gaugeIds).not.toContain(l0Id);
+    }
+  });
+});

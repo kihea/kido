@@ -15,6 +15,7 @@ import type {
 import {
   analyzeCorpus,
   annotatePassages,
+  applyDirectionalEvidence,
   applyEvidence,
   buildProfile,
   mergeStructuredRelations,
@@ -73,6 +74,7 @@ export function useSession(settings: Settings): SessionApi {
     const updated: TopicRecord = {
       ...rec,
       mastery: state.mastery,
+      direction: state.direction,
       events: [...rec.events.slice(0, priorEventsRef.current), ...state.events],
       reviews: [...rec.reviews, ...seeds.filter((s) => !known.has(s.id))],
       pool: state.pool,
@@ -144,6 +146,8 @@ export function useSession(settings: Settings): SessionApi {
       const { state, card } = startSession(corpus, profile, {
         family: record.family,
         mastery: record.mastery,
+        ...(record.direction ? { direction: record.direction } : {}),
+        deepGauge: settings.deepGauge ?? false,
         now: Date.now(),
       });
       setTutor(state);
@@ -187,8 +191,10 @@ export function useSession(settings: Settings): SessionApi {
         outcome: feedback.outcome,
         itemId: item.id,
       };
+      // Feed both ledgers (per-layer mastery and up/down direction); skips are silence.
       const mastery = feedback.outcome === 'skipped' ? t.mastery : applyEvidence(t.mastery, event);
-      const updated: TutorState = { ...t, mastery, events: [...t.events, event] };
+      const direction = feedback.outcome === 'skipped' ? t.direction : applyDirectionalEvidence(t.direction, event);
+      const updated: TutorState = { ...t, mastery, direction, events: [...t.events, event] };
       setTutor(updated);
       setPhase((p) => (p.name === 'active' ? { ...p, feedback, judgedBy } : p));
       void persist(updated);
@@ -222,7 +228,8 @@ export function useSession(settings: Settings): SessionApi {
         if (!t) return t;
         const event = { at: Date.now(), layer, kind, outcome };
         const mastery = outcome === 'skipped' ? t.mastery : applyEvidence(t.mastery, event);
-        const updated: TutorState = { ...t, mastery, events: [...t.events, event] };
+        const direction = outcome === 'skipped' ? t.direction : applyDirectionalEvidence(t.direction, event);
+        const updated: TutorState = { ...t, mastery, direction, events: [...t.events, event] };
         void persist(updated);
         return updated;
       });

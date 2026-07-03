@@ -9,7 +9,7 @@ import { nextSocraticTurn, type SocraticTurn } from '../engine';
 import { LAYER_INFO } from '../engine/layers';
 
 const KIND_FOR_LAYER: Record<Layer, EvidenceKind> = {
-  0: 'feynman',
+  0: 'potential',
   1: 'identify',
   2: 'gradient',
   3: 'boundary',
@@ -91,18 +91,19 @@ export function SocraticView({
         <>
           <blockquote className="own-answer">{answer}</blockquote>
           <div className="feedback">
+            <p className="feedback-label">What a strong answer engages</p>
             <p className="feedback-note">{turn.lookFor}</p>
           </div>
           <div className="self-grade">
-            <span>Against that — how did yours hold?</span>
+            <span>Read yours against that. Did it get there?</span>
             <button type="button" onClick={() => grade('pass')}>
-              Held up
+              Yes — I engaged that
             </button>
             <button type="button" onClick={() => grade('partial')}>
               Partly
             </button>
             <button type="button" onClick={() => grade('miss')}>
-              It missed
+              No — I missed it
             </button>
           </div>
         </>

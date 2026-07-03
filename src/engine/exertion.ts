@@ -14,6 +14,7 @@ import type {
   GroupingItem,
   Layer,
   MapRepairItem,
+  PotentialItem,
   PracticeItem,
   SequenceItem,
   TransferItem,
@@ -29,17 +30,23 @@ function clozeFor(corpus: Corpus, concept: Concept, layer: Layer, kind: 'retriev
   const pool = concept.definedByPassage
     ? [concept.definedByPassage, ...concept.passageIds]
     : concept.passageIds;
-  for (const pid of pool) {
-    const p = byId.get(pid);
-    if (!p) continue;
-    for (const s of sentences(p.text)) {
-      if (!re.test(s)) continue;
-      const wc = wordCount(s);
-      if (wc < 8 || wc > 60) continue; // too thin to cue, or a wall
-      const blanked = s.replace(re, BLANK);
-      if (blanked === s) continue;
-      const doc = corpus.docs.get(p.docId);
-      return {
+  // Two passes: prefer a sentence that stands on its own (names its subject);
+  // fall back to one opening with a bare back-reference ("This process…", "Its…")
+  // only when nothing clearer carries the term — those read as riddles to a
+  // learner who can't see the paragraph the pronoun points back to.
+  for (const preferClear of [true, false]) {
+    for (const pid of pool) {
+      const p = byId.get(pid);
+      if (!p) continue;
+      for (const s of sentences(p.text)) {
+        if (!re.test(s)) continue;
+        const wc = wordCount(s);
+        if (wc < 8 || wc > 60) continue; // too thin to cue, or a wall
+        if (preferClear && opensWithBackReference(s)) continue;
+        const blanked = s.replace(re, BLANK);
+        if (blanked === s) continue;
+        const doc = corpus.docs.get(p.docId);
+        return {
         type: 'cloze',
         id: hashId('cloze', `${concept.id}|${pid}|${kind}`),
         layer,
@@ -50,14 +57,20 @@ function clozeFor(corpus: Corpus, concept: Concept, layer: Layer, kind: 'retriev
         conceptId: concept.id,
         sourceTitle: doc?.title ?? 'source',
         passageIds: [pid],
-        reason:
-          kind === 'gradient'
-            ? `“${concept.label}” names something that varies in ${corpus.topic} — recalling it inside its own sentence exercises the extent layer.`
-            : `“${concept.label}” recurs across your sources — recall beats rereading, so reconstruct it where the source used it.`,
-      };
+          reason:
+            kind === 'gradient'
+              ? `“${concept.label}” names something that varies in ${corpus.topic} — recalling it inside its own sentence exercises the extent layer.`
+              : `“${concept.label}” recurs across your sources — recall beats rereading, so reconstruct it where the source used it.`,
+        };
+      }
     }
   }
   return null;
+}
+
+/** A sentence whose subject is a bare back-reference the learner can't resolve. */
+function opensWithBackReference(s: string): boolean {
+  return /^\s*(?:it|its|this|that|these|those|such|they|their|here)\b/i.test(s);
 }
 
 function acceptForms(label: string): string[] {
@@ -250,6 +263,28 @@ function flashcardItems(corpus: Corpus): FlashcardItem[] {
 }
 
 /**
+ * Potential (L0): the question almost never asked — what else could have
+ * stood here? Grounded strictly in what the profile knows (its neighbors and
+ * any possibility-marked excerpt); returns null rather than invent alternatives.
+ */
+function potentialItem(profile: DimensionalProfile): PotentialItem | null {
+  const alts = profile.neighboring.slice(0, 3).map((n) => n.label);
+  const l0 = profile.layers[0].claims[0];
+  if (alts.length < 2 && !l0) return null;
+  return {
+    type: 'potential',
+    id: hashId('pot', profile.topic),
+    layer: 0,
+    kind: 'potential',
+    prompt: `What else could have been the case, from which ${profile.topic} was selected? Name one live alternative — and what choosing ${profile.topic} over it gave up.`,
+    alternatives: alts,
+    ...(l0 ? { frontierExcerpt: truncate(l0.text, 260) } : {}),
+    passageIds: [...(l0?.passageIds ?? []), ...profile.neighboring.slice(0, 3).flatMap((n) => n.passageIds)],
+    reason: `The question almost never asked: the possibility space ${profile.topic} was carved from. Naming the else guards against mistaking the current configuration for the only one.`,
+  };
+}
+
+/**
  * The full practice pool for a session. The tutor draws from this by target
  * layer; the review scheduler replays items from it across days.
  */
@@ -287,6 +322,8 @@ export function buildPracticePool(corpus: Corpus, profile: DimensionalProfile): 
   items.push(feynmanItem(profile));
   items.push(...mapRepairItems(profile));
   items.push(...transferItems(corpus, profile));
+  const pot = potentialItem(profile);
+  if (pot) items.push(pot);
   return items;
 }
 
