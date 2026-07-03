@@ -151,6 +151,14 @@ export function SettingsScreen({
             aria-label="Branch-out reach"
           />
           <span className="settings-value">{Math.round(draft.reach * 100)}%</span>
+          <label className="settings-check">
+            <input
+              type="checkbox"
+              checked={draft.deepGauge ?? false}
+              onChange={(e) => setDraft((d) => ({ ...d, deepGauge: e.target.checked }))}
+            />
+            Deeper gauge — adds the potential question (what else could this have been?). Advanced.
+          </label>
         </section>
 
         <section className="settings-section">

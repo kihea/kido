@@ -22,6 +22,7 @@ export function SessionScreen({
   const { phase, tutor } = session;
   const [clipSignal, setClipSignal] = useState({ count: 0, text: '' });
   const [mode, setMode] = useState<'cards' | 'socratic'>('cards');
+  const [railView, setRailView] = useState<'stack' | 'mirror'>('stack');
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -100,8 +101,18 @@ export function SessionScreen({
       </header>
       <div className="session-body">
         <aside className="session-rail">
-          <span className="pane-title">Layers</span>
-          <LayerRail mastery={tutor.mastery} target={tutor.target} now={Date.now()} />
+          <div className="rail-head">
+            <span className="pane-title">Layers</span>
+            <button
+              type="button"
+              className="btn-quiet rail-fold"
+              title="The stack is symmetric about embodiment: L0↔L8, L1↔L7, L2↔L6, L3↔L5. Fold it to see the pairs."
+              onClick={() => setRailView((v) => (v === 'stack' ? 'mirror' : 'stack'))}
+            >
+              {railView === 'stack' ? 'fold' : 'unfold'}
+            </button>
+          </div>
+          <LayerRail mastery={tutor.mastery} target={tutor.target} now={Date.now()} view={railView} />
           {tutor.profile.gaps.length > 0 && (
             <p className="rail-gaps">
               No source evidence yet for: {tutor.profile.gaps.map((g) => LAYER_INFO[g].name).join(', ')} — KIDO

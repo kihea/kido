@@ -730,6 +730,53 @@ kbd {
   color: var(--ink-faint);
 }
 
+/* folded mirror rail — each row is one polarity, bars growing from the axis */
+.rail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.rail-fold {
+  font-size: 0.72rem;
+  padding: 0.1rem 0.4rem;
+}
+.layer-rail-mirror .mirror-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto 1fr 1fr;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+  padding: 0.12rem 0.2rem;
+  border-radius: 6px;
+}
+.layer-rail-mirror .mirror-row.is-axis {
+  grid-template-columns: 1fr 2fr 1fr;
+  color: var(--ink);
+}
+.layer-rail-mirror .mirror-row.is-target {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--ink);
+}
+.layer-name-right {
+  text-align: right;
+}
+.mirror-axis,
+.mirror-axis-tag {
+  color: var(--ink-faint);
+  text-align: center;
+  font-size: 0.65rem;
+}
+.mirror-bar-left .layer-bar-fill {
+  margin-left: auto; /* left bar grows outward toward the fold */
+}
+.mirror-legend {
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  font-style: italic;
+  margin: 0.5rem 0 0;
+}
+
 /* notebook */
 .notebook {
   display: flex;
@@ -889,6 +936,17 @@ kbd {
   margin-left: 0.8rem;
   color: var(--ink-dim);
   font-variant-numeric: tabular-nums;
+}
+.settings-check {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: var(--ink-dim);
+}
+.settings-check input {
+  flex: none;
 }
 
 /* review */
