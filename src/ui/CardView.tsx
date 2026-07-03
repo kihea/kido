@@ -42,7 +42,7 @@ export function CardView({
       return (
         <article className="card">
           <header className="card-head">
-            <span className="layer-chip">{LAYER_INFO[card.layer].name}</span>
+            <span className="layer-chip" title={card.reason}>{LAYER_INFO[card.layer].name}</span>
             {doc.branch && <span className="branch-chip" title={doc.branch.why}>{doc.branch.kind}</span>}
           </header>
           <blockquote className="excerpt-text">{passage.text}</blockquote>
@@ -60,7 +60,6 @@ export function CardView({
               ties back through {card.threads[0]!.viaLabels.slice(0, 3).join(', ')}
             </p>
           )}
-          <p className="card-reason">{card.reason}</p>
           <div className="card-actions">
             <button type="button" className="btn-secondary" onClick={() => onClip(cite)}>
               Clip to notes
@@ -81,7 +80,6 @@ export function CardView({
             <span className="synth-tag">{card.by === 'model' ? 'model synthesis' : 'KIDO signpost'} — not a source</span>
           </header>
           <p className="explanation-text">{card.text}</p>
-          <p className="card-reason">{card.reason}</p>
           <div className="card-actions">
             <button type="button" autoFocus onClick={onAdvance}>
               Continue ⏎
@@ -94,11 +92,10 @@ export function CardView({
       return (
         <article className="card">
           <header className="card-head">
-            <span className="layer-chip">{LAYER_INFO[card.item.layer].name}</span>
+            <span className="layer-chip" title={card.reason}>{LAYER_INFO[card.item.layer].name}</span>
             <span className="move-chip">{card.move.replace(/-/g, ' ')}</span>
           </header>
           <PracticeView item={card.item} feedback={feedback} judgedBy={judgedBy} hasModel={hasModel} onSubmit={(r) => onSubmit(card.item, r)} />
-          {feedback === null && <p className="card-reason">{card.reason}</p>}
           {feedback !== null && (
             <div className="card-actions">
               <button type="button" autoFocus onClick={onAdvance}>
@@ -120,11 +117,6 @@ export function CardView({
             <aside className={`collapse-flag ${card.collapse.anchorState}`}>
               <h3>{card.collapse.anchorState === 'untested' ? 'Unverified anchor' : 'Possible collapse'}</h3>
               <p>{card.collapse.reason}</p>
-              <p className="collapse-honesty">
-                {profile.layers[4].claims.length === 0
-                  ? 'Your sources are thin at the embodiment layer — this can only be settled against a real case. Research one worked example and test yourself on it.'
-                  : 'A flag, not a verdict — it clears the moment you demonstrate one concrete instance, and hardens only if the instance fails.'}
-              </p>
             </aside>
           )}
           {card.direction && (
@@ -133,24 +125,19 @@ export function CardView({
               {card.direction.line}
             </p>
           )}
-          {card.next && (
+          {card.next && !(card.collapse && card.next.layer === 4) && (
             <>
               <p className="summary-next">
-                Next turn: the <strong>{LAYER_INFO[card.next.layer].name}</strong> layer. {card.next.why}
+                Next turn: the <strong>{LAYER_INFO[card.next.layer].name}</strong> layer — {card.next.why}
               </p>
               {card.next.mirror && <p className="summary-mirror">{card.next.mirror.note}</p>}
             </>
           )}
-          <p className="summary-turn">
-            {card.turn.note}
-            {card.turn.visited.length > 0 &&
-              ` This pass touched ${card.turn.visited.length} of 9 layers: ${card.turn.visited
-                .map((l) => LAYER_INFO[l].name)
-                .join(', ')}.`}
-          </p>
-          <p className="summary-note">
-            What you exercised enters spaced review — it comes back before it fades.
-          </p>
+          {card.turn.visited.length > 0 && (
+            <p className="summary-turn">
+              This pass touched {card.turn.visited.map((l) => LAYER_INFO[l].name).join(', ')}.
+            </p>
+          )}
           <div className="card-actions">
             <button type="button" autoFocus onClick={onFinishTopic}>
               Close this turn

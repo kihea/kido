@@ -682,6 +682,49 @@ kbd {
   font-size: 0.95rem;
 }
 
+/* study map + tune panel */
+.study-map {
+  border-bottom: 1px solid var(--line);
+  padding: 0.8rem 1.4rem;
+  font-size: 0.88rem;
+}
+.study-map ul {
+  margin: 0.4rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.study-map-idea {
+  margin: 0;
+  font-family: var(--serif);
+}
+.study-map-why {
+  color: var(--ink-faint);
+}
+.tune-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.tune-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--ink-dim);
+}
+.tune-row input[type='range'] {
+  flex: 1;
+  max-width: 260px;
+}
+.checkpoint-quote {
+  font-size: 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
 /* layer rail */
 .layer-rail {
   display: flex;

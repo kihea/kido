@@ -15,6 +15,7 @@ export type SourceType =
   | 'textbook' // Wikibooks
   | 'paper' // Crossref / OpenAlex scholarly abstracts (the authors' own words)
   | 'discussion' // Hacker News comments (where pushback lives)
+  | 'blog' // practitioner explainers (DEV Community), the author's own words
   | 'book' // Open Library pointers
   | 'news' // Chronicling America historic newspapers (the topic in its own time)
   | 'primary' // Wikisource original documents and texts
@@ -410,6 +411,25 @@ export interface PotentialItem extends PracticeBase {
   frontierExcerpt?: string;
 }
 
+/**
+ * Weave checkpoint (from the alpha): two concepts that recur across sources
+ * and co-occur in the corpus — the learner writes the relation in their own
+ * words. The connection IS the learning objective (Aristotle's form-in-matter:
+ * the picture is how the tesserae sit together). An L7 structure exertion.
+ */
+export interface CheckpointItem extends PracticeBase {
+  type: 'checkpoint';
+  conceptA: string; // concept id
+  conceptB: string; // concept id
+  labelA: string;
+  labelB: string;
+  /** An open, pointed prompt — not "how do A and B relate". */
+  prompt: string;
+  /** Representative verbatim quotes the learner has met, for the notes template. */
+  quoteA: { text: string; title: string; url: string };
+  quoteB: { text: string; title: string; url: string };
+}
+
 export type PracticeItem =
   | ClozeItem
   | BoundaryItem
@@ -419,7 +439,8 @@ export type PracticeItem =
   | TransferItem
   | GroupingItem
   | FlashcardItem
-  | PotentialItem;
+  | PotentialItem
+  | CheckpointItem;
 
 // -- session cards ----------------------------------------------------------------
 

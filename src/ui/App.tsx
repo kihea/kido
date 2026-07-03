@@ -60,7 +60,18 @@ export function App() {
         />
       );
     case 'session':
-      return <SessionScreen session={session} hasModel={settings.model.kind !== 'none'} onExit={exitSession} />;
+      return (
+        <SessionScreen
+          session={session}
+          hasModel={settings.model.kind !== 'none'}
+          settings={settings}
+          onSettings={(s) => {
+            setSettings(s);
+            void saveSettings(s);
+          }}
+          onExit={exitSession}
+        />
+      );
     case 'review':
       return <ReviewScreen onExit={() => setView('home')} />;
     case 'settings':

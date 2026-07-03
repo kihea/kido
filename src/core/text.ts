@@ -83,3 +83,11 @@ export function sameTerm(a: string, b: string): boolean {
 export function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+/** Truncate at a word boundary with an ellipsis — never mid-word. */
+export function truncate(s: string, n: number): string {
+  if (s.length <= n) return s;
+  const cut = s.slice(0, n - 1);
+  const at = cut.lastIndexOf(' ');
+  return `${(at > n * 0.6 ? cut.slice(0, at) : cut).trimEnd()}…`;
+}

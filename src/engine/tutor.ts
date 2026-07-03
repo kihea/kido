@@ -310,8 +310,8 @@ function finish(state: TutorState, now: number): { state: TutorState; card: Summ
   // never a finish line. Name the mirror partner only when it's been worked.
   const why =
     eff === null
-      ? `The ${info.name} layer is untested — ${info.question.toLowerCase()} The next turn starts there.`
-      : `The ${info.name} layer is where your circulation is thinnest right now — the next turn passes through it.`;
+      ? `untested. ${info.question}`
+      : `where your circulation is thinnest right now.`;
   const partner = mirrorLayer(nextLayer);
   const mirror =
     partner !== nextLayer && state.mastery[partner].evidence > 0
@@ -334,7 +334,7 @@ function finish(state: TutorState, now: number): { state: TutorState; card: Summ
     next: { layer: nextLayer, why, ...(mirror ? { mirror } : {}) },
     turn: {
       visited,
-      note: 'The stack is a loop, not a ladder — up and down meet, and a principle fully grasped opens new potential. Nothing here finishes; it goes one turn deeper.',
+      note: 'Nothing here finishes — it goes one turn deeper. What you exercised returns on schedule.',
     },
     ...(imb ? { direction: describeImbalance(imb) } : {}),
     ...(collapse ? { collapse } : {}),
@@ -357,6 +357,7 @@ export type PracticeResponse =
   | { type: 'grouping'; placedInA: string[] } // labels the learner put in group A
   | { type: 'flashcard'; recalled: 'pass' | 'partial' | 'miss' } // self-graded on flip
   | { type: 'potential'; text: string; selfGrade?: 'pass' | 'partial' | 'miss' }
+  | { type: 'checkpoint'; text: string; selfGrade?: 'pass' | 'partial' | 'miss' }
   | { type: 'skip' };
 
 export interface Feedback {
@@ -504,6 +505,26 @@ export function gradeResponse(item: PracticeItem, response: PracticeResponse): F
           response.recalled === 'pass'
             ? 'Retrieved cleanly. It stays on the schedule so it stays retrievable.'
             : 'Noted — this one comes back sooner.',
+      };
+    }
+    case 'checkpoint': {
+      if (response.type !== 'checkpoint') break;
+      const reveal = `“${item.quoteA.text}” — ${item.quoteA.title}\n“${item.quoteB.text}” — ${item.quoteB.title}`;
+      if (response.selfGrade) {
+        return { outcome: response.selfGrade, note: 'Your connection, your call — the sources are the check.', reveal };
+      }
+      const t = normalize(response.text);
+      const both = t.includes(normalize(item.labelA)) && t.includes(normalize(item.labelB));
+      const words = wordCount(response.text);
+      if (both && words >= 12) {
+        return { outcome: 'pass', note: 'You wove them, not just named them.', reveal };
+      }
+      return {
+        outcome: words >= 12 ? 'partial' : 'miss',
+        note: both
+          ? 'Say more than that they relate — what does one do to the other?'
+          : `Engage both ${item.labelA} and ${item.labelB} directly.`,
+        reveal,
       };
     }
     case 'potential': {

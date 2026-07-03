@@ -3,10 +3,11 @@
 // the layer questions and the profile's own boundaries/principles as
 // templates; a configured model may rephrase but never changes the target.
 
-import type { DimensionalProfile, Layer, MasteryVector } from '../core/types';
+import type { DimensionalProfile, DirectionVector, Layer, MasteryVector } from '../core/types';
 import { LAYER_INFO } from './layers';
 import { chooseTargetLayer } from './diagnose';
 import { effectiveMastery } from './mastery';
+import { truncate } from '../core/text';
 import type { DomainFamily } from '../core/types';
 
 export interface SocraticTurn {
@@ -42,8 +43,9 @@ export function nextSocraticTurn(
   family: DomainFamily,
   now: number,
   asked: string[] = [],
+  direction?: DirectionVector,
 ): SocraticTurn | null {
-  const target = chooseTargetLayer(profile, mastery, family, now);
+  const target = chooseTargetLayer(profile, mastery, family, now, direction);
   const candidates = turnsForLayer(profile, target).filter((t) => !asked.includes(t.question));
   if (candidates.length > 0) return candidates[0]!;
   // Target exhausted — walk the other teachable layers. L0 comes last and only
@@ -81,6 +83,11 @@ export function nineQuestionSurvey(profile: DimensionalProfile): SocraticTurn[] 
 function turnsForLayer(profile: DimensionalProfile, layer: Layer): SocraticTurn[] {
   const topic = profile.topic;
   const out: SocraticTurn[] = [];
+  // Ground the check in the learner's own sources whenever a claim exists.
+  const cite = (l: Layer, rubric: string): string => {
+    const c = profile.layers[l].claims[0];
+    return c ? `${rubric} Compare against the source: “${truncate(c.text, 200)}”` : rubric;
+  };
   switch (layer) {
     case 0: {
       // First non-empty grounding wins, deterministically.
@@ -137,7 +144,7 @@ function turnsForLayer(profile: DimensionalProfile, layer: Layer): SocraticTurn[
       out.push({
         layer: 5,
         question: `Walk me through ${topic} as a process — what has to happen first, and what breaks if the order flips?`,
-        lookFor: `A strong answer names dependencies between steps, not just their sequence.`,
+        lookFor: cite(5, `A strong answer names dependencies between steps, not just their sequence.`),
       });
       break;
     case 2: {
@@ -146,7 +153,7 @@ function turnsForLayer(profile: DimensionalProfile, layer: Layer): SocraticTurn[
         out.push({
           layer: 2,
           question: `If you could only measure one thing about ${topic}, what would you measure, and what would ${edge.label} tell you?`,
-          lookFor: `A strong answer picks a gradient that discriminates cases, not a static fact.`,
+          lookFor: cite(2, `A strong answer picks a gradient that discriminates cases, not a static fact.`),
         });
       }
       break;
@@ -155,7 +162,7 @@ function turnsForLayer(profile: DimensionalProfile, layer: Layer): SocraticTurn[
       out.push({
         layer: 4,
         question: `Give me one concrete case of ${topic} — then point at exactly where in that case the idea is doing work.`,
-        lookFor: `The idea should be locatable inside the instance, not floating above it.`,
+        lookFor: cite(4, `The idea should be locatable inside the instance, not floating above it.`),
       });
       break;
     case 7: {
@@ -164,7 +171,7 @@ function turnsForLayer(profile: DimensionalProfile, layer: Layer): SocraticTurn[
         out.push({
           layer: 7,
           question: `${parts.join(' and ')} all sit inside ${topic}. Which one could you remove and still have ${topic}? Defend it.`,
-          lookFor: `A strong answer distinguishes load-bearing parts from replaceable ones.`,
+          lookFor: cite(7, `A strong answer distinguishes load-bearing parts from replaceable ones.`),
         });
       }
       break;
@@ -174,7 +181,7 @@ function turnsForLayer(profile: DimensionalProfile, layer: Layer): SocraticTurn[
       out.push({
         layer: 6,
         question: `Strip the jargon: what is ${topic}, in one sentence a sharp newcomer couldn't misunderstand?`,
-        lookFor: `Center plus boundary — what it is AND what near-miss it is not.`,
+        lookFor: cite(6, `Center plus boundary — what it is AND what near-miss it is not.`),
       });
       break;
   }

@@ -48,9 +48,8 @@ export function PracticeView({
       {item.type === 'transfer' && (
         <Transfer item={item} answered={answered} hasModel={hasModel} onSubmit={onSubmit} />
       )}
-      {item.type === 'potential' && (
-        <Potential item={item} answered={answered} hasModel={hasModel} onSubmit={onSubmit} />
-      )}
+      {item.type === 'potential' && <Potential item={item} answered={answered} onSubmit={onSubmit} />}
+      {item.type === 'checkpoint' && <Checkpoint item={item} answered={answered} onSubmit={onSubmit} />}
 
       {!answered && (
         <button type="button" className="btn-skip" onClick={() => onSubmit({ type: 'skip' })}>
@@ -230,7 +229,7 @@ function MapRepair({
   return (
     <div className="practice-form">
       <p className="practice-prompt">
-        <strong>{item.fromLabel}</strong> ␣␣?␣␣ <strong>{item.toLabel}</strong> — which relation holds?
+        Complete the claim: <strong>{item.fromLabel}</strong> ___ <strong>{item.toLabel}</strong>
       </p>
       {!answered && (
         <div className="option-grid">
@@ -404,12 +403,10 @@ function Transfer({
 function Potential({
   item,
   answered,
-  hasModel,
   onSubmit,
 }: {
   item: Extract<PracticeItem, { type: 'potential' }>;
   answered: boolean;
-  hasModel: boolean;
   onSubmit: (r: PracticeResponse) => void;
 }) {
   const [text, setText] = useState('');
@@ -425,24 +422,49 @@ function Potential({
             onChange={(e) => setText(e.target.value)}
             placeholder="Name one live alternative — and what selecting it away gave up."
           />
-          {hasModel ? (
-            <button type="button" disabled={!text.trim()} onClick={() => onSubmit({ type: 'potential', text })}>
-              Submit
-            </button>
-          ) : (
-            <div className="self-grade">
-              <span>Did you name a real alternative?</span>
-              <button type="button" disabled={!text.trim()} onClick={() => onSubmit({ type: 'potential', text, selfGrade: 'pass' })}>
-                Yes
-              </button>
-              <button type="button" disabled={!text.trim()} onClick={() => onSubmit({ type: 'potential', text, selfGrade: 'partial' })}>
-                Roughly
-              </button>
-              <button type="button" disabled={!text.trim()} onClick={() => onSubmit({ type: 'potential', text, selfGrade: 'miss' })}>
-                No
-              </button>
-            </div>
-          )}
+          <button type="button" disabled={!text.trim()} onClick={() => onSubmit({ type: 'potential', text })}>
+            Submit
+          </button>
+        </>
+      )}
+      {answered && text && <blockquote className="own-answer">{text}</blockquote>}
+    </div>
+  );
+}
+
+function Checkpoint({
+  item,
+  answered,
+  onSubmit,
+}: {
+  item: Extract<PracticeItem, { type: 'checkpoint' }>;
+  answered: boolean;
+  onSubmit: (r: PracticeResponse) => void;
+}) {
+  const [text, setText] = useState('');
+  return (
+    <div className="practice-form">
+      <p className="practice-prompt">{item.prompt}</p>
+      <blockquote className="excerpt-text checkpoint-quote">
+        {item.quoteA.text}
+        <span className="flashcard-source">— {item.quoteA.title}</span>
+      </blockquote>
+      <blockquote className="excerpt-text checkpoint-quote">
+        {item.quoteB.text}
+        <span className="flashcard-source">— {item.quoteB.title}</span>
+      </blockquote>
+      {!answered && (
+        <>
+          <textarea
+            autoFocus
+            rows={4}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={`My connection: ${item.labelA} … ${item.labelB} …`}
+          />
+          <button type="button" disabled={!text.trim()} onClick={() => onSubmit({ type: 'checkpoint', text })}>
+            Weave it
+          </button>
         </>
       )}
       {answered && text && <blockquote className="own-answer">{text}</blockquote>}

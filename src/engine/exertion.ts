@@ -5,6 +5,7 @@
 
 import type {
   BoundaryItem,
+  CheckpointItem,
   ClozeItem,
   Concept,
   Corpus,
@@ -20,7 +21,7 @@ import type {
   TransferItem,
 } from '../core/types';
 import { hashId } from '../core/ids';
-import { escapeRegExp, sentences, wordCount } from '../core/text';
+import { escapeRegExp, normalize, sentences, wordCount } from '../core/text';
 
 const BLANK = '＿＿＿＿';
 
@@ -285,6 +286,79 @@ function potentialItem(profile: DimensionalProfile): PotentialItem | null {
 }
 
 /**
+ * Weave checkpoints (from the alpha): pairs of important concepts that recur
+ * across sources and co-occur in the same passages — the strongest threads in
+ * the corpus. The learner writes the relation in their own words. An L7
+ * structure exertion; the connection is the objective, not either concept alone.
+ */
+function checkpointItems(corpus: Corpus, profile: DimensionalProfile, max = 3): CheckpointItem[] {
+  const byId = new Map(corpus.passages.map((p) => [p.id, p]));
+  const concept = new Map(corpus.concepts.map((c) => [c.id, c]));
+  const topicKey = normalize(profile.topic);
+
+  // Count co-occurrences: a pair that shares many passages is tightly woven.
+  const pairShared = new Map<string, { a: string; b: string; passages: Set<string> }>();
+  for (const c of corpus.concepts) {
+    if (!c.important || c.id === topicKey) continue;
+    for (const other of corpus.concepts) {
+      if (other.id <= c.id || !other.important || other.id === topicKey) continue;
+      const shared = c.passageIds.filter((id) => other.passageIds.includes(id));
+      if (shared.length < 1) continue;
+      pairShared.set(`${c.id}|${other.id}`, { a: c.id, b: other.id, passages: new Set(shared) });
+    }
+  }
+  const ranked = [...pairShared.values()]
+    .map((p) => ({
+      ...p,
+      weight: p.passages.size * ((concept.get(p.a)?.weight ?? 0) + (concept.get(p.b)?.weight ?? 0)),
+    }))
+    .sort((x, y) => y.weight - x.weight);
+
+  const quoteFor = (conceptId: string, avoidPassage?: string): CheckpointItem['quoteA'] | null => {
+    const c = concept.get(conceptId);
+    if (!c) return null;
+    const re = new RegExp(`\\b${escapeRegExp(c.label)}\\b`, 'i');
+    for (const pid of c.passageIds) {
+      if (pid === avoidPassage) continue;
+      const p = byId.get(pid);
+      if (!p) continue;
+      const s = sentences(p.text).find((x) => re.test(x) && wordCount(x) >= 6);
+      if (s) {
+        const doc = corpus.docs.get(p.docId);
+        return { text: truncate(s, 240), title: doc?.title ?? 'source', url: p.anchorUrl ?? doc?.url ?? '' };
+      }
+    }
+    return null;
+  };
+
+  const out: CheckpointItem[] = [];
+  for (const pair of ranked) {
+    if (out.length >= max) break;
+    const a = concept.get(pair.a)!;
+    const b = concept.get(pair.b)!;
+    const qa = quoteFor(pair.a);
+    const qb = quoteFor(pair.b, qa && a.passageIds[0] === b.passageIds[0] ? a.passageIds[0] : undefined);
+    if (!qa || !qb) continue;
+    out.push({
+      type: 'checkpoint',
+      id: hashId('weave', `${pair.a}|${pair.b}`),
+      layer: 7,
+      kind: 'map-repair',
+      conceptA: pair.a,
+      conceptB: pair.b,
+      labelA: a.label,
+      labelB: b.label,
+      prompt: `You've met ${a.label} and ${b.label}. In one sentence you'd defend: how do they hold together — does one cause, contain, contrast with, or depend on the other?`,
+      quoteA: qa,
+      quoteB: qb,
+      passageIds: [...pair.passages].slice(0, 4),
+      reason: `${a.label} and ${b.label} recur together across your sources — the weave between them is the topic's structure. Writing the relation is the L7 move.`,
+    });
+  }
+  return out;
+}
+
+/**
  * The full practice pool for a session. The tutor draws from this by target
  * layer; the review scheduler replays items from it across days.
  */
@@ -320,6 +394,7 @@ export function buildPracticePool(corpus: Corpus, profile: DimensionalProfile): 
   items.push(...flashcardItems(corpus));
   items.push(...sequenceItems(corpus, profile));
   items.push(feynmanItem(profile));
+  items.push(...checkpointItems(corpus, profile));
   items.push(...mapRepairItems(profile));
   items.push(...transferItems(corpus, profile));
   const pot = potentialItem(profile);

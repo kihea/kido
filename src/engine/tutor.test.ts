@@ -228,10 +228,9 @@ describe('no-summit summary (framework Ch 11–12, 22)', () => {
     expect(s.next?.mirror).toBeUndefined(); // skips add no evidence
   });
 
-  it('untested next layer gets next-turn framing', () => {
+  it('untested next layer says so tersely', () => {
     const s = runToSummary('skip');
     expect(s.next?.why).toContain('untested');
-    expect(s.next?.why).toContain('next turn');
   });
 
   it('is deterministic across identical runs', () => {

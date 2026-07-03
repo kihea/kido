@@ -4,7 +4,15 @@
 // the reveal comes only after they've committed words.
 
 import { useMemo, useState } from 'react';
-import type { DimensionalProfile, DomainFamily, EvidenceKind, Layer, MasteryVector, Outcome } from '../core/types';
+import type {
+  DimensionalProfile,
+  DirectionVector,
+  DomainFamily,
+  EvidenceKind,
+  Layer,
+  MasteryVector,
+  Outcome,
+} from '../core/types';
 import { nextSocraticTurn, type SocraticTurn } from '../engine';
 import { LAYER_INFO } from '../engine/layers';
 
@@ -23,12 +31,14 @@ const KIND_FOR_LAYER: Record<Layer, EvidenceKind> = {
 export function SocraticView({
   profile,
   mastery,
+  direction,
   family,
   onEvidence,
   onExit,
 }: {
   profile: DimensionalProfile;
   mastery: MasteryVector;
+  direction: DirectionVector;
   family: DomainFamily;
   onEvidence: (layer: Layer, kind: EvidenceKind, outcome: Outcome) => void;
   onExit: () => void;
@@ -38,8 +48,8 @@ export function SocraticView({
   const [committed, setCommitted] = useState(false);
 
   const turn: SocraticTurn | null = useMemo(
-    () => nextSocraticTurn(profile, mastery, family, Date.now(), asked),
-    [profile, mastery, family, asked],
+    () => nextSocraticTurn(profile, mastery, family, Date.now(), asked, direction),
+    [profile, mastery, direction, family, asked],
   );
 
   if (!turn) {
@@ -108,7 +118,9 @@ export function SocraticView({
           </div>
         </>
       )}
-      <p className="card-reason">One question at a time, aimed at your weakest layer. Your self-grades feed the same mastery ledger as practice.</p>
+      {asked.length === 0 && !committed && (
+        <p className="card-reason">Aimed at your weakest layer — self-grades count the same as practice.</p>
+      )}
     </article>
   );
 }

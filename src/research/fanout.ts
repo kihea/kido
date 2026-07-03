@@ -15,6 +15,7 @@ import { searchEuropePmc } from './europepmc';
 import { searchDoaj } from './doaj';
 import { searchArchive } from './archive';
 import { searchStackExchange } from './stackexchange';
+import { searchDevto } from './devto';
 import { searchHN } from './hn';
 import { searchOpenLibrary } from './openlibrary';
 import { searchChronicling } from './chronicling';
@@ -57,6 +58,7 @@ export function seedProviders(opts: FanoutOptions = {}): Provider[] {
   ];
   if (opts.technical) {
     providers.push({ name: 'Stack Exchange', run: (q) => searchStackExchange(q) });
+    providers.push({ name: 'DEV Community', run: (q) => searchDevto(q) });
   }
   if (opts.current) {
     providers.push({ name: 'Wikinews', run: (q) => searchWiki(q, 'en.wikinews.org', 'news', 'Wikinews', 2, 3) });
