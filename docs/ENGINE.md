@@ -107,9 +107,47 @@ prescribes an entry sequence. Then:
 | L7 | concept-map repair |
 | L8 | principle inference / transfer task |
 
-Protocol constraints: diagnose before teaching (one calibrating question); move one
-layer at a time; direct explanation is legitimate when the learner lacks footing —
-return agency immediately after; end with reconstruction, not recognition.
+Protocol constraints: diagnose before teaching (an opening gauge of quick probes,
+not self-report); move one layer at a time; direct explanation is legitimate when the
+learner lacks footing — return agency immediately after; end with reconstruction, not
+recognition.
+
+## 6a. Directional competence (canonical doc Ch 13–14)
+
+Understanding is a vector, not a scalar, and navigable in *both* directions. Alongside
+the per-layer mastery vector the engine keeps a `DirectionVector` — pooled `up`
+(averaging / consolidation: name it, state it, relate it) and `down` (exertion /
+application: instantiate, decide, run, predict) competence. `KIND_DIRECTION` maps each
+`EvidenceKind` to a direction; one graded response feeds both ledgers. Past an evidence
+gate (both directions ≥ 3 events, gap ≥ 0.25), `detectImbalance` names the failure —
+*stuck ascending* (can average, can't exert) or *stuck descending* (can exert, can't
+re-average) — and `chooseTargetLayer` biases toward layers whose practice exercises the
+weak direction. Untested direction is unknown, never weak.
+
+## 6b. Collapse (canonical doc Ch 8, 14)
+
+A collapsed abstraction recites perfectly and fails only under exertion. `detectCollapse`
+flags fluent, evidenced upper layers (L6–L8) sitting over a weak-or-untested L4
+embodiment anchor; the tutor routes straight to L4 ("demand the instance") via a priority
+interrupt. The flag is evidence-gated (no all-untested false positives), staleness-aware,
+and self-clearing: one anchor pass dissolves it, a miss hardens it from *possible* to
+*demonstrated*.
+
+## 6c. L0 potential and the nine-question survey (canonical doc Ch 13)
+
+L0 is background for ordinary teaching. The complete Ch-13 survey (`nineQuestionSurvey`)
+asks one question per layer, L0 last: *what else could have been the case, from which this
+was selected?* The L0 probe surfaces only for advanced learners — `l0Unlocked` requires
+demonstrated L3 + L6 competence and profile material — or via an opt-in deep gauge. It is
+grounded strictly in the profile's known neighbors, never invented.
+
+## 6d. The torus (canonical doc Ch 10–12, 22)
+
+The stack is a loop, not a ladder: L8 closes onto L0, so the spiral has no summit and
+mastery is circulation, never completion. The nine layers form mirror pairs about
+embodiment — L0↔L8, L1↔L7, L2↔L6, L3↔L5, L4 the axis. This is framing and visualization
+(the folded rail; the "one turn deeper" summary); mirror partnership never feeds mastery
+math (§5's vector discipline holds).
 
 ## 7. Review
 
