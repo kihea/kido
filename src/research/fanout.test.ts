@@ -7,6 +7,12 @@ describe('seedProviders', () => {
     expect(names).toContain('Wikipedia');
     expect(names).toContain('OpenAlex');
     expect(names).toContain('Crossref');
+    expect(names).toContain('DOAJ');
+  });
+
+  it('adds Internet Archive full-text only for historical topics', () => {
+    expect(seedProviders({ historical: true }).map((p) => p.name)).toContain('Internet Archive');
+    expect(seedProviders({}).map((p) => p.name)).not.toContain('Internet Archive');
   });
 
   it('adds primary/newspaper providers only for historical topics', () => {

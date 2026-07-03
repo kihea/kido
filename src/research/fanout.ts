@@ -12,6 +12,8 @@ import { searchCrossref } from './crossref';
 import { searchOpenAlex } from './openalex';
 import { searchSemanticScholar } from './semanticscholar';
 import { searchEuropePmc } from './europepmc';
+import { searchDoaj } from './doaj';
+import { searchArchive } from './archive';
 import { searchStackExchange } from './stackexchange';
 import { searchHN } from './hn';
 import { searchOpenLibrary } from './openlibrary';
@@ -47,6 +49,7 @@ export function seedProviders(opts: FanoutOptions = {}): Provider[] {
     { name: 'OpenAlex', run: (q) => searchOpenAlex(q, 5, opts.politeEmail) },
     { name: 'Semantic Scholar', run: (q) => searchSemanticScholar(q) },
     { name: 'Europe PMC', run: (q) => searchEuropePmc(q) },
+    { name: 'DOAJ', run: (q) => searchDoaj(q) },
     { name: 'Crossref', run: (q) => searchCrossref(q) },
     { name: 'Hacker News', run: (q) => searchHN(q) },
     { name: 'Open Library', run: (q) => searchOpenLibrary(q) },
@@ -64,6 +67,7 @@ export function seedProviders(opts: FanoutOptions = {}): Provider[] {
     providers.push(
       { name: 'Wikisource', run: (q) => searchWiki(q, 'en.wikisource.org', 'primary', 'Wikisource', 2, 3) },
       { name: 'Wikiquote', run: (q) => searchWiki(q, 'en.wikiquote.org', 'primary', 'Wikiquote', 1, 3) },
+      { name: 'Internet Archive', run: (q) => searchArchive(q) },
       { name: 'Chronicling America', run: (q) => searchChronicling(q) },
     );
   }
