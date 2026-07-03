@@ -4,7 +4,9 @@
 
 import { useCallback, useRef, useState } from 'react';
 import type {
+  EvidenceKind,
   Layer,
+  Outcome,
   PracticeItem,
   ProviderProgress,
   SessionCard,
@@ -49,6 +51,8 @@ export interface SessionApi {
   /** Notebook: the learner's visible averaging operation. Autosaved. */
   notebook: () => string;
   updateNotebook: (text: string) => void;
+  /** Socratic mode: record a self-graded turn into the same mastery ledger. */
+  recordSocratic: (layer: Layer, kind: EvidenceKind, outcome: Outcome) => void;
 }
 
 const MIN_PASSAGES = 6;
@@ -212,6 +216,20 @@ export function useSession(settings: Settings): SessionApi {
     setPhase({ name: 'idle' });
   }, []);
 
+  const recordSocratic = useCallback(
+    (layer: Layer, kind: EvidenceKind, outcome: Outcome) => {
+      setTutor((t) => {
+        if (!t) return t;
+        const event = { at: Date.now(), layer, kind, outcome };
+        const mastery = outcome === 'skipped' ? t.mastery : applyEvidence(t.mastery, event);
+        const updated: TutorState = { ...t, mastery, events: [...t.events, event] };
+        void persist(updated);
+        return updated;
+      });
+    },
+    [persist],
+  );
+
   const notebook = useCallback(() => recordRef.current?.notebook ?? '', []);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -226,5 +244,5 @@ export function useSession(settings: Settings): SessionApi {
     }, 600);
   }, []);
 
-  return { phase, tutor, begin, submit, advance, reset, notebook, updateNotebook };
+  return { phase, tutor, begin, submit, advance, reset, notebook, updateNotebook, recordSocratic };
 }

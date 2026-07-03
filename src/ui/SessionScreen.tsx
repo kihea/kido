@@ -7,6 +7,7 @@ import type { SessionApi } from './useSession';
 import { CardView } from './CardView';
 import { LayerRail } from './LayerRail';
 import { Notebook } from './Notebook';
+import { SocraticView } from './SocraticView';
 import { LAYER_INFO } from '../engine/layers';
 
 export function SessionScreen({
@@ -20,6 +21,7 @@ export function SessionScreen({
 }) {
   const { phase, tutor } = session;
   const [clipSignal, setClipSignal] = useState({ count: 0, text: '' });
+  const [mode, setMode] = useState<'cards' | 'socratic'>('cards');
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -81,9 +83,20 @@ export function SessionScreen({
         <button type="button" className="btn-quiet" onClick={onExit} aria-label="Leave session">
           ← {tutor.profile.topic}
         </button>
-        <span className="session-meta">
-          {tutor.cardsRemaining > 0 && phase.name !== 'done' ? `${tutor.cardsRemaining} cards left` : ''}
-        </span>
+        <div className="session-controls">
+          {phase.name !== 'done' && (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setMode((m) => (m === 'cards' ? 'socratic' : 'cards'))}
+            >
+              {mode === 'cards' ? 'Talk it through' : 'Back to cards'}
+            </button>
+          )}
+          <span className="session-meta">
+            {tutor.cardsRemaining > 0 && phase.name !== 'done' ? `${tutor.cardsRemaining} cards left` : ''}
+          </span>
+        </div>
       </header>
       <div className="session-body">
         <aside className="session-rail">
@@ -97,6 +110,15 @@ export function SessionScreen({
           )}
         </aside>
         <main className="session-main">
+          {mode === 'socratic' && phase.name !== 'done' ? (
+            <SocraticView
+              profile={tutor.profile}
+              mastery={tutor.mastery}
+              family={tutor.family}
+              onEvidence={session.recordSocratic}
+              onExit={() => setMode('cards')}
+            />
+          ) : (
           <CardView
             card={card}
             profile={tutor.profile}
@@ -108,6 +130,7 @@ export function SessionScreen({
             onClip={(text) => setClipSignal((s) => ({ count: s.count + 1, text }))}
             onFinishTopic={onExit}
           />
+          )}
         </main>
         <aside className="session-notes">
           <Notebook initial={session.notebook()} clipSignal={clipSignal} onChange={session.updateNotebook} />

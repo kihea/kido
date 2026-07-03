@@ -273,6 +273,11 @@ kbd {
   color: var(--ink-faint);
   font-size: 0.85rem;
 }
+.session-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
 .session-body {
   flex: 1;
   display: grid;
